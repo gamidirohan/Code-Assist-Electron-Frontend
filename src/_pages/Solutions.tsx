@@ -139,7 +139,7 @@ const Solutions: React.FC<SolutionsProps> = ({
   const [problemStatementData, setProblemStatementData] =
     useState<ProblemStatementData | null>(null)
   const [solutionData, setSolutionData] = useState<string | null>(null)
-  const [thoughtsData, setThoughtsData] = useState<string[] | null>(null)
+  const [thoughtsData, setThoughtsData] = useState<string | null>(null)
   const [timeComplexityData, setTimeComplexityData] = useState<string | null>(
     null
   )
@@ -264,7 +264,7 @@ const Solutions: React.FC<SolutionsProps> = ({
         // Reset solutions in the cache (even though this shouldn't ever happen) and complexities to previous states
         const solution = queryClient.getQueryData(["solution"]) as {
           code: string
-          thoughts: string[]
+          thoughts: string
           time_complexity: string
           space_complexity: string
         } | null
@@ -395,11 +395,18 @@ const Solutions: React.FC<SolutionsProps> = ({
           time_complexity: formattedTimeComplexity,
           space_complexity: formattedSpaceComplexity
         };
+
+        console.log("State values being set:", {
+          solutionDataCode: typeof solutionData.code === "string" ? solutionData.code : null,
+          thoughtsData: typeof solutionData.thoughts === "string" ? solutionData.thoughts : null,
+          timeComplexityData: typeof solutionData.time_complexity === "string" ? solutionData.time_complexity : null,
+          spaceComplexityData: typeof solutionData.space_complexity === "string" ? solutionData.space_complexity : null
+        });
       
         // 5. Update the query cache and state (rest of your original code is fine)
         queryClient.setQueryData(["solution"], solutionData);
         setSolutionData(typeof solutionData.code === "string" ? solutionData.code : null);
-        setThoughtsData(Array.isArray(solutionData.thoughts) ? solutionData.thoughts : null);
+        setThoughtsData(typeof solutionData.thoughts === "string" ? solutionData.thoughts : null);
         setTimeComplexityData(typeof solutionData.time_complexity === "string" ? solutionData.time_complexity : null);
         setSpaceComplexityData(typeof solutionData.space_complexity === "string" ? solutionData.space_complexity : null);
       
@@ -482,7 +489,7 @@ const Solutions: React.FC<SolutionsProps> = ({
       if (event?.query.queryKey[0] === "solution") {
         const solution = queryClient.getQueryData(["solution"]) as {
           code: string
-          thoughts: string[]
+          thoughts: string
           time_complexity: string
           space_complexity: string
         } | null
@@ -596,15 +603,12 @@ const Solutions: React.FC<SolutionsProps> = ({
                         thoughtsData && (
                           <div className="space-y-3">
                             <div className="space-y-1">
-                              {thoughtsData.map((thought, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-start gap-2"
-                                >
-                                  <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
-                                  <div>{thought}</div>
+                            {thoughtsData && ( // Conditionally render if thoughtsData is not null
+                                <div className="flex items-start gap-2"> {/* Removed key and map, adjusted class if needed */}
+                                    <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" /> {/* Keep bullet if you want */}
+                                    <div>{thoughtsData}</div> {/* Directly render thoughtsData string */}
                                 </div>
-                              ))}
+                            )}
                             </div>
                           </div>
                         )
