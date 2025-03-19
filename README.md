@@ -31,7 +31,7 @@ Interview Coder is a desktop application designed to help users with technical c
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/interview-coder.git
+   git clone https://github.com/gamidirohan/Code-Assist-Electron-Frontend.git
    cd interview-coder
    ```
 

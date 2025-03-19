@@ -1,6 +1,8 @@
-import React from "react";
+import React from "react";;
 
 interface LanguageSelectorProps {
+  currentLanguage: string;
+  setLanguage: (language: string) => void;
   currentLanguage: string;
   setLanguage: (language: string) => void;
 }
@@ -8,18 +10,24 @@ interface LanguageSelectorProps {
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   currentLanguage,
   setLanguage,
+  setLanguage,
 }) => {
   const handleLanguageChange = async (
     e: React.ChangeEvent<HTMLSelectElement>
   ) => {
     const newLanguage = e.target.value;
+    const newLanguage = e.target.value;
     try {
       // Just update the language locally
       setLanguage(newLanguage);
       window.__LANGUAGE__ = newLanguage;
+      setLanguage(newLanguage);
+      window.__LANGUAGE__ = newLanguage;
     } catch (error) {
       console.error("Error updating language preference:", error);
+      console.error("Error updating language preference:", error);
     }
+  };
   };
 
   return (
@@ -44,5 +52,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         </select>
       </div>
     </div>
+  );
+};
   );
 };
