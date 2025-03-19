@@ -1,26 +1,26 @@
-import React from "react"
+import React from "react";
 
 interface LanguageSelectorProps {
-  currentLanguage: string
-  setLanguage: (language: string) => void
+  currentLanguage: string;
+  setLanguage: (language: string) => void;
 }
 
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   currentLanguage,
-  setLanguage
+  setLanguage,
 }) => {
   const handleLanguageChange = async (
     e: React.ChangeEvent<HTMLSelectElement>
   ) => {
-    const newLanguage = e.target.value
+    const newLanguage = e.target.value;
     try {
       // Just update the language locally
-      setLanguage(newLanguage)
-      window.__LANGUAGE__ = newLanguage
+      setLanguage(newLanguage);
+      window.__LANGUAGE__ = newLanguage;
     } catch (error) {
-      console.error("Error updating language preference:", error)
+      console.error("Error updating language preference:", error);
     }
-  }
+  };
 
   return (
     <div className="mb-3 px-2 space-y-1">
@@ -29,7 +29,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         <select
           value={currentLanguage}
           onChange={handleLanguageChange}
-          className="bg-white/10 rounded px-2 py-1 text-sm outline-none border border-white/10 focus:border-white/20"
+          className="bg-neutral-900 text-gray-300 rounded-md px-3 py-1.5 text-sm outline-none ring-0 focus:ring-2 focus:ring-blue-500 hover:bg-neutral-800 transition-all"
         >
           <option value="python">Python</option>
           <option value="javascript">JavaScript</option>
@@ -44,5 +44,5 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         </select>
       </div>
     </div>
-  )
-}
+  );
+};
