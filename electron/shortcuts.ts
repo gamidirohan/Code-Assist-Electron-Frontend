@@ -8,6 +8,22 @@ export class ShortcutsHelper {
     this.deps = deps
   }
 
+  private adjustOpacity(delta: number): void {
+    const mainWindow = this.deps.getMainWindow();
+    if (!mainWindow) return;
+    
+    let currentOpacity = mainWindow.getOpacity();
+    let newOpacity = Math.max(0.1, Math.min(1.0, currentOpacity + delta));
+    console.log(`Adjusting opacity from ${currentOpacity} to ${newOpacity}`);
+    
+    mainWindow.setOpacity(newOpacity);
+
+    // If we're making the window visible, also make sure it's shown and interaction is enabled
+    if (newOpacity > 0.1 && !this.deps.isVisible()) {
+      this.deps.toggleMainWindow();
+    }
+  }
+
   public registerGlobalShortcuts(): void {
     globalShortcut.register("CommandOrControl+H", async () => {
       const mainWindow = this.deps.getMainWindow()
@@ -76,9 +92,63 @@ export class ShortcutsHelper {
     })
 
     globalShortcut.register("CommandOrControl+B", () => {
+      console.log("Command/Ctrl + B pressed. Toggling window visibility.")
       this.deps.toggleMainWindow()
     })
 
+    globalShortcut.register("CommandOrControl+Q", () => {
+      console.log("Command/Ctrl + Q pressed. Quitting application.")
+      app.quit()
+    })
+
+    // Adjust opacity shortcuts
+    globalShortcut.register("CommandOrControl+[", () => {
+      console.log("Command/Ctrl + [ pressed. Decreasing opacity.")
+      this.adjustOpacity(-0.1)
+    })
+
+    globalShortcut.register("CommandOrControl+]", () => {
+      console.log("Command/Ctrl + ] pressed. Increasing opacity.")
+      this.adjustOpacity(0.1)
+    })
+    
+    // Zoom controls
+    globalShortcut.register("CommandOrControl+-", () => {
+      console.log("Command/Ctrl + - pressed. Zooming out.")
+      const mainWindow = this.deps.getMainWindow()
+      if (mainWindow) {
+        const currentZoom = mainWindow.webContents.getZoomLevel()
+        mainWindow.webContents.setZoomLevel(currentZoom - 0.5)
+      }
+    })
+    
+    globalShortcut.register("CommandOrControl+0", () => {
+      console.log("Command/Ctrl + 0 pressed. Resetting zoom.")
+      const mainWindow = this.deps.getMainWindow()
+      if (mainWindow) {
+        mainWindow.webContents.setZoomLevel(0)
+      }
+    })
+    
+    globalShortcut.register("CommandOrControl+=", () => {
+      console.log("Command/Ctrl + = pressed. Zooming in.")
+      const mainWindow = this.deps.getMainWindow()
+      if (mainWindow) {
+        const currentZoom = mainWindow.webContents.getZoomLevel()
+        mainWindow.webContents.setZoomLevel(currentZoom + 0.5)
+      }
+    })
+    
+    // Delete last screenshot shortcut
+    globalShortcut.register("CommandOrControl+L", () => {
+      console.log("Command/Ctrl + L pressed. Deleting last screenshot.")
+      const mainWindow = this.deps.getMainWindow()
+      if (mainWindow) {
+        // Send an event to the renderer to delete the last screenshot
+        mainWindow.webContents.send("delete-last-screenshot")
+      }
+    })
+    
     // Unregister shortcuts when quitting
     app.on("will-quit", () => {
       globalShortcut.unregisterAll()

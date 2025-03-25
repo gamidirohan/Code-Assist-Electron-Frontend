@@ -1,5 +1,6 @@
 import { app, BrowserWindow, screen, shell, ipcMain } from "electron"
 import path from "path"
+import fs from "fs"
 import { initializeIpcHandlers } from "./ipcHandlers"
 import { ProcessingHelper } from "./ProcessingHelper"
 import { ScreenshotHelper } from "./ScreenshotHelper"
@@ -8,7 +9,7 @@ import { initAutoUpdater } from "./autoUpdater"
 import * as dotenv from "dotenv"
 
 // Constants
-const isDev = process.env.NODE_ENV === "development" || !app.isPackaged
+const isDev = process.env.NODE_ENV === "development"
 
 // Application State
 const state = {
@@ -38,7 +39,7 @@ const state = {
     UNAUTHORIZED: "processing-unauthorized",
     NO_SCREENSHOTS: "processing-no-screenshots",
     OUT_OF_CREDITS: "out-of-credits",
-    API_KEY_INVALID: "processing-api-key-invalid",
+    API_KEY_INVALID: "api-key-invalid",
     INITIAL_START: "initial-start",
     PROBLEM_EXTRACTED: "problem-extracted",
     SOLUTION_SUCCESS: "solution-success",
@@ -65,7 +66,7 @@ export interface IProcessingHelperDeps {
   deleteScreenshot: (
     path: string
   ) => Promise<{ success: boolean; error?: string }>
-  setHasDebugged: (hasDebugged: boolean) => void
+  setHasDebugged: (value: boolean) => void
   getHasDebugged: () => boolean
   PROCESSING_EVENTS: typeof state.PROCESSING_EVENTS
 }
@@ -101,7 +102,6 @@ export interface IIpcHandlerDeps {
   toggleMainWindow: () => void
   clearQueues: () => void
   setView: (view: "queue" | "solutions" | "debug") => void
-  setHasDebugged: (value: boolean) => void
   moveWindowLeft: () => void
   moveWindowRight: () => void
   moveWindowUp: () => void
@@ -153,6 +153,43 @@ function initializeHelpers() {
   } as IShortcutsHelperDeps)
 }
 
+// Auth callback handler
+
+// Register the interview-coder protocol
+if (process.platform === "darwin") {
+  app.setAsDefaultProtocolClient("interview-coder")
+} else {
+  app.setAsDefaultProtocolClient("interview-coder", process.execPath, [
+    path.resolve(process.argv[1] || "")
+  ])
+}
+
+// Handle the protocol. In this case, we choose to show an Error Box.
+if (process.defaultApp && process.argv.length >= 2) {
+  app.setAsDefaultProtocolClient("interview-coder", process.execPath, [
+    path.resolve(process.argv[1])
+  ])
+}
+
+// Force Single Instance Lock
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on("second-instance", (event, commandLine) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (state.mainWindow) {
+      if (state.mainWindow.isMinimized()) state.mainWindow.restore()
+      state.mainWindow.focus()
+
+      // Protocol handler removed - no longer using auth callbacks
+    }
+  })
+}
+
+// Auth callback removed as we no longer use Supabase authentication
+
 // Window management functions
 async function createWindow(): Promise<void> {
   if (state.mainWindow) {
@@ -169,8 +206,10 @@ async function createWindow(): Promise<void> {
   state.currentY = 50
 
   const windowSettings: Electron.BrowserWindowConstructorOptions = {
+    width: 800,
     height: 600,
-
+    minWidth: 750,
+    minHeight: 550,
     x: state.currentX,
     y: 50,
     alwaysOnTop: true,
@@ -187,6 +226,7 @@ async function createWindow(): Promise<void> {
     transparent: true,
     fullscreenable: false,
     hasShadow: false,
+    opacity: 1.0,  // Start with full opacity
     backgroundColor: "#00000000",
     focusable: true,
     skipTaskbar: true,
@@ -207,21 +247,43 @@ async function createWindow(): Promise<void> {
     "did-fail-load",
     async (event, errorCode, errorDescription) => {
       console.error("Window failed to load:", errorCode, errorDescription)
-      // Always try to load the built files on failure
-      console.log("Attempting to load built files...")
-      setTimeout(() => {
-        state.mainWindow?.loadFile(path.join(__dirname, "../dist/index.html")).catch((error) => {
-          console.error("Failed to load built files on retry:", error)
-        })
-      }, 1000)
+      if (isDev) {
+        // In development, retry loading after a short delay
+        console.log("Retrying to load development server...")
+        setTimeout(() => {
+          state.mainWindow?.loadURL("http://localhost:54321").catch((error) => {
+            console.error("Failed to load dev server on retry:", error)
+          })
+        }, 1000)
+      }
     }
   )
 
-  // Load the app - always load from built files
-  console.log("Loading application from built files...")
-  state.mainWindow?.loadFile(path.join(__dirname, "../dist/index.html")).catch((error) => {
-    console.error("Failed to load built files:", error)
-  })
+  if (isDev) {
+    // In development, load from the dev server
+    console.log("Loading from development server: http://localhost:54321")
+    state.mainWindow.loadURL("http://localhost:54321").catch((error) => {
+      console.error("Failed to load dev server, falling back to local file:", error)
+      // Fallback to local file if dev server is not available
+      const indexPath = path.join(__dirname, "../dist/index.html")
+      console.log("Falling back to:", indexPath)
+      if (fs.existsSync(indexPath)) {
+        state.mainWindow.loadFile(indexPath)
+      } else {
+        console.error("Could not find index.html in dist folder")
+      }
+    })
+  } else {
+    // In production, load from the built files
+    const indexPath = path.join(__dirname, "../dist/index.html")
+    console.log("Loading production build:", indexPath)
+    
+    if (fs.existsSync(indexPath)) {
+      state.mainWindow.loadFile(indexPath)
+    } else {
+      console.error("Could not find index.html in dist folder")
+    }
+  }
 
   // Configure window behavior
   state.mainWindow.webContents.setZoomFactor(1)
@@ -229,9 +291,12 @@ async function createWindow(): Promise<void> {
     state.mainWindow.webContents.openDevTools()
   }
   state.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Allow opening URLs in external browser
-    shell.openExternal(url)
-    return { action: "deny" }
+    console.log("Attempting to open URL:", url)
+    if (url.includes("google.com") || url.includes("supabase.co")) {
+      shell.openExternal(url)
+      return { action: "deny" }
+    }
+    return { action: "allow" }
   })
 
   // Enhanced screen capture resistance
@@ -272,6 +337,15 @@ async function createWindow(): Promise<void> {
   state.currentX = bounds.x
   state.currentY = bounds.y
   state.isWindowVisible = true
+  
+  // Set opacity based on user preferences or hide initially
+  // Ensure the window is visible for the first launch or if opacity > 0.1
+  
+  // Always make sure window is shown first
+  state.mainWindow.showInactive(); // Use showInactive for consistency
+    console.log('Initial opacity too low, setting to 0 and hiding window');
+    state.mainWindow.setOpacity(0);
+    state.isWindowVisible = false;
 }
 
 function handleWindowMove(): void {
@@ -298,17 +372,13 @@ function handleWindowClosed(): void {
 // Window visibility functions
 function hideMainWindow(): void {
   if (!state.mainWindow?.isDestroyed()) {
-    const bounds = state.mainWindow.getBounds()
-    state.windowPosition = { x: bounds.x, y: bounds.y }
-    state.windowSize = { width: bounds.width, height: bounds.height }
-    state.mainWindow.setIgnoreMouseEvents(true, { forward: true })
-    state.mainWindow.setAlwaysOnTop(true, "screen-saver", 1)
-    state.mainWindow.setVisibleOnAllWorkspaces(true, {
-      visibleOnFullScreen: true
-    })
-    state.mainWindow.setOpacity(0)
-    state.mainWindow.hide()
-    state.isWindowVisible = false
+    const bounds = state.mainWindow.getBounds();
+    state.windowPosition = { x: bounds.x, y: bounds.y };
+    state.windowSize = { width: bounds.width, height: bounds.height };
+    state.mainWindow.setIgnoreMouseEvents(true, { forward: true });
+    state.mainWindow.setOpacity(0);
+    state.isWindowVisible = false;
+    console.log('Window hidden, opacity set to 0');
   }
 }
 
@@ -318,23 +388,29 @@ function showMainWindow(): void {
       state.mainWindow.setBounds({
         ...state.windowPosition,
         ...state.windowSize
-      })
+      });
     }
-    state.mainWindow.setIgnoreMouseEvents(false)
-    state.mainWindow.setAlwaysOnTop(true, "screen-saver", 1)
+    state.mainWindow.setIgnoreMouseEvents(false);
+    state.mainWindow.setAlwaysOnTop(true, "screen-saver", 1);
     state.mainWindow.setVisibleOnAllWorkspaces(true, {
       visibleOnFullScreen: true
-    })
-    state.mainWindow.setContentProtection(true)
-    state.mainWindow.setOpacity(0)
-    state.mainWindow.showInactive()
-    state.mainWindow.setOpacity(1)
-    state.isWindowVisible = true
+    });
+    state.mainWindow.setContentProtection(true);
+    state.mainWindow.setOpacity(0); // Set opacity to 0 before showing
+    state.mainWindow.showInactive(); // Use showInactive instead of show+focus
+    state.mainWindow.setOpacity(1); // Then set opacity to 1 after showing
+    state.isWindowVisible = true;
+    console.log('Window shown with showInactive(), opacity set to 1');
   }
 }
 
 function toggleMainWindow(): void {
-  state.isWindowVisible ? hideMainWindow() : showMainWindow()
+  console.log(`Toggling window. Current state: ${state.isWindowVisible ? 'visible' : 'hidden'}`);
+  if (state.isWindowVisible) {
+    hideMainWindow();
+  } else {
+    showMainWindow();
+  }
 }
 
 // Window movement functions
@@ -395,22 +471,42 @@ function setWindowDimensions(width: number, height: number): void {
 
 // Environment setup
 function loadEnvVariables() {
-  try {
-    dotenv.config()
-    console.log("Environment variables loaded:", {
-      NODE_ENV: process.env.NODE_ENV,
-      // Remove Supabase references
-      OPEN_AI_API_KEY: process.env.OPEN_AI_API_KEY ? "exists" : "missing"
-    })
-  } catch (error) {
-    console.error("Error loading environment variables:", error)
+  if (isDev) {
+    console.log("Loading env variables from:", path.join(process.cwd(), ".env"))
+    dotenv.config({ path: path.join(process.cwd(), ".env") })
+  } else {
+    console.log(
+      "Loading env variables from:",
+      path.join(process.resourcesPath, ".env")
+    )
+    dotenv.config({ path: path.join(process.resourcesPath, ".env") })
   }
+  console.log("Environment variables loaded for open-source version")
 }
 
 // Initialize application
 async function initializeApp() {
   try {
+    // Set custom cache directory to prevent permission issues
+    const appDataPath = path.join(app.getPath('appData'), 'interview-coder-v1')
+    const sessionPath = path.join(appDataPath, 'session')
+    const tempPath = path.join(appDataPath, 'temp')
+    const cachePath = path.join(appDataPath, 'cache')
+    
+    // Create directories if they don't exist
+    for (const dir of [appDataPath, sessionPath, tempPath, cachePath]) {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+    }
+    
+    app.setPath('userData', appDataPath)
+    app.setPath('sessionData', sessionPath)      
+    app.setPath('temp', tempPath)
+    app.setPath('cache', cachePath)
+      
     loadEnvVariables()
+    
     initializeHelpers()
     initializeIpcHandlers({
       getMainWindow,
@@ -426,7 +522,6 @@ async function initializeApp() {
       toggleMainWindow,
       clearQueues,
       setView,
-      setHasDebugged,
       moveWindowLeft: () =>
         moveWindowHorizontal((x) =>
           Math.max(-(state.windowSize?.width || 0) / 2, x - state.step)
@@ -456,6 +551,43 @@ async function initializeApp() {
     app.quit()
   }
 }
+
+// Auth callback handling removed - no longer needed
+app.on("open-url", (event, url) => {
+  console.log("open-url event received:", url)
+  event.preventDefault()
+})
+
+// Handle second instance (removed auth callback handling)
+app.on("second-instance", (event, commandLine) => {
+  console.log("second-instance event received:", commandLine)
+  
+  // Focus or create the main window
+  if (!state.mainWindow) {
+    createWindow()
+  } else {
+    if (state.mainWindow.isMinimized()) state.mainWindow.restore()
+    state.mainWindow.focus()
+  }
+})
+
+// Prevent multiple instances of the app
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      app.quit()
+      state.mainWindow = null
+    }
+  })
+}
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow()
+  }
+})
 
 // State getter/setter functions
 function getMainWindow(): BrowserWindow | null {
