@@ -87,38 +87,54 @@ const SolutionSection = ({
 export const ComplexitySection = ({
   timeComplexity,
   spaceComplexity,
-  isLoading
+  timeComplexityExplanation,
+  spaceComplexityExplanation,
+  isLoading,
 }: {
-  timeComplexity: string | null
-  spaceComplexity: string | null
-  isLoading: boolean
+  timeComplexity: string | null;
+  spaceComplexity: string | null;
+  timeComplexityExplanation?: string | null;
+  spaceComplexityExplanation?: string | null;
+  isLoading: boolean;
 }) => (
   <div className="space-y-2">
     <h2 className="text-[13px] font-medium text-white tracking-wide">
       Complexity
     </h2>
     {isLoading ? (
-      <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
-        Calculating complexity...
-      </p>
-    ) : (
-      <div className="space-y-1">
-        <div className="flex items-start gap-2 text-[13px] leading-[1.4] text-gray-100">
-          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
-          <div>
-            <strong>Time:</strong> {timeComplexity}
-          </div>
+      <div className="space-y-1.5">
+        <div className="mt-4 flex">
+          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+            Loading complexity analysis...
+          </p>
         </div>
-        <div className="flex items-start gap-2 text-[13px] leading-[1.4] text-gray-100">
-          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
-          <div>
-            <strong>Space:</strong> {spaceComplexity}
+      </div>
+    ) : (
+      <div className="flex flex-col space-y-3 bg-black/30 rounded-md p-3">
+        <div className="flex flex-col">
+          <div className="text-[13px] leading-[1.4] text-white/90">
+            <span className="font-semibold">Time:</span> {timeComplexity}
           </div>
+          {timeComplexityExplanation && (
+            <div className="text-[12px] leading-[1.4] mt-1 text-white/70">
+              {timeComplexityExplanation}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col">
+          <div className="text-[13px] leading-[1.4] text-white/90">
+            <span className="font-semibold">Space:</span> {spaceComplexity}
+          </div>
+          {spaceComplexityExplanation && (
+            <div className="text-[12px] leading-[1.4] mt-1 text-white/70">
+              {spaceComplexityExplanation}
+            </div>
+          )}
         </div>
       </div>
     )}
   </div>
-)
+);
 
 export interface SolutionsProps {
   setView: (view: "queue" | "solutions" | "debug") => void
@@ -146,6 +162,8 @@ const Solutions: React.FC<SolutionsProps> = ({
   const [spaceComplexityData, setSpaceComplexityData] = useState<string | null>(
     null
   )
+  const [timeComplexityExplanation, setTimeComplexityExplanation] = useState<string | null>(null)
+  const [spaceComplexityExplanation, setSpaceComplexityExplanation] = useState<string | null>(null)
 
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const [tooltipHeight, setTooltipHeight] = useState(0)
@@ -363,6 +381,8 @@ const Solutions: React.FC<SolutionsProps> = ({
         let formattedThoughts;
         let formattedTimeComplexity;
         let formattedSpaceComplexity;
+        let formattedTimeComplexityExplanation = null;
+        let formattedSpaceComplexityExplanation = null;
       
       
         if (typeof rawSolutionData === 'object' && rawSolutionData !== null) {
@@ -371,6 +391,28 @@ const Solutions: React.FC<SolutionsProps> = ({
           formattedThoughts = formatField(rawSolutionData.Explanation);
           formattedTimeComplexity = formatField(rawSolutionData["Time Complexity"]);
           formattedSpaceComplexity = formatField(rawSolutionData["Space Complexity"]);
+          
+          // Process complexity explanation if exists
+          if (rawSolutionData.complexity_explanation) {
+            const complexityExplanation = formatField(rawSolutionData.complexity_explanation) as string;
+            
+            // Try to split the explanation if it contains both time and space complexity info
+            if (complexityExplanation && typeof complexityExplanation === 'string') {
+              if (complexityExplanation.toLowerCase().includes('time') && complexityExplanation.toLowerCase().includes('space')) {
+                // Try to split by sentences or key phrases
+                const sentences = complexityExplanation.split('. ');
+                const timeExplanation = sentences.find(s => s.toLowerCase().includes('time'));
+                const spaceExplanation = sentences.find(s => s.toLowerCase().includes('space'));
+                
+                formattedTimeComplexityExplanation = timeExplanation || complexityExplanation;
+                formattedSpaceComplexityExplanation = spaceExplanation || complexityExplanation;
+              } else {
+                // If we can't clearly separate them, use the full explanation for both
+                formattedTimeComplexityExplanation = complexityExplanation;
+                formattedSpaceComplexityExplanation = complexityExplanation;
+              }
+            }
+          }
         } else {
           // If rawSolutionData is not an object (e.g., JSON parsing failed or wasn't JSON in the first place),
           // format the original data.code directly (as a fallback)
@@ -385,7 +427,9 @@ const Solutions: React.FC<SolutionsProps> = ({
           code: formattedCode,
           thoughts: formattedThoughts,
           time_complexity: formattedTimeComplexity,
-          space_complexity: formattedSpaceComplexity
+          space_complexity: formattedSpaceComplexity,
+          time_complexity_explanation: formattedTimeComplexityExplanation,
+          space_complexity_explanation: formattedSpaceComplexityExplanation
         });
       
         // 4. Create the solution data object with formatted fields
@@ -393,7 +437,9 @@ const Solutions: React.FC<SolutionsProps> = ({
           code: formattedCode,
           thoughts: formattedThoughts,
           time_complexity: formattedTimeComplexity,
-          space_complexity: formattedSpaceComplexity
+          space_complexity: formattedSpaceComplexity,
+          time_complexity_explanation: formattedTimeComplexityExplanation,
+          space_complexity_explanation: formattedSpaceComplexityExplanation
         };
 
         console.log("State values being set:", {
@@ -409,6 +455,8 @@ const Solutions: React.FC<SolutionsProps> = ({
         setThoughtsData(typeof solutionData.thoughts === "string" ? solutionData.thoughts : null);
         setTimeComplexityData(typeof solutionData.time_complexity === "string" ? solutionData.time_complexity : null);
         setSpaceComplexityData(typeof solutionData.space_complexity === "string" ? solutionData.space_complexity : null);
+        setTimeComplexityExplanation(solutionData.time_complexity_explanation);
+        setSpaceComplexityExplanation(solutionData.space_complexity_explanation);
       
       
         // Fetch latest screenshots - keep this part as is
@@ -626,6 +674,8 @@ const Solutions: React.FC<SolutionsProps> = ({
                     <ComplexitySection
                       timeComplexity={timeComplexityData}
                       spaceComplexity={spaceComplexityData}
+                      timeComplexityExplanation={timeComplexityExplanation}
+                      spaceComplexityExplanation={spaceComplexityExplanation}
                       isLoading={!timeComplexityData || !spaceComplexityData}
                     />
                   </>
