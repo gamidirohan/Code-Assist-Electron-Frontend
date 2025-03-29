@@ -102,6 +102,8 @@ const Debug: React.FC<DebugProps> = ({
   const [spaceComplexityData, setSpaceComplexityData] = useState<string | null>(
     null
   )
+  const [timeComplexityExplanation, setTimeComplexityExplanation] = useState<string | null>(null)
+  const [spaceComplexityExplanation, setSpaceComplexityExplanation] = useState<string | null>(null)
   const [debugAnalysis, setDebugAnalysis] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
@@ -115,6 +117,8 @@ const Debug: React.FC<DebugProps> = ({
       thoughts: string[]
       time_complexity: string
       space_complexity: string
+      time_complexity_explanation: string
+      space_complexity_explanation: string
     } | null
 
     // If we have cached data, set all state variables to the cached data
@@ -142,6 +146,8 @@ const Debug: React.FC<DebugProps> = ({
       }
       setTimeComplexityData(newSolution.time_complexity || "N/A - Debug mode")
       setSpaceComplexityData(newSolution.space_complexity || "N/A - Debug mode")
+      setTimeComplexityExplanation(newSolution.time_complexity_explanation || null)
+      setSpaceComplexityExplanation(newSolution.space_complexity_explanation || null)
       setIsProcessing(false)
     }
 
@@ -193,6 +199,8 @@ const Debug: React.FC<DebugProps> = ({
         }
         setTimeComplexityData(data.time_complexity || "N/A - Debug mode");
         setSpaceComplexityData(data.space_complexity || "N/A - Debug mode");
+        setTimeComplexityExplanation(data.time_complexity_explanation || null);
+        setSpaceComplexityExplanation(data.space_complexity_explanation || null);
         
         setIsProcessing(false);
       }),
@@ -460,6 +468,8 @@ const Debug: React.FC<DebugProps> = ({
             <ComplexitySection
               timeComplexity={timeComplexityData}
               spaceComplexity={spaceComplexityData}
+              timeComplexityExplanation={timeComplexityExplanation} 
+              spaceComplexityExplanation={spaceComplexityExplanation}
               isLoading={!timeComplexityData || !spaceComplexityData}
             />
           </div>
