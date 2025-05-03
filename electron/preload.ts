@@ -49,6 +49,8 @@ interface ElectronAPI {
   getPlatform: () => string
   enableMouseInteraction: () => Promise<{ success: boolean; error?: string }>
   disableMouseInteraction: () => Promise<{ success: boolean; error?: string }>
+  enableClickThrough: () => Promise<{ success: boolean; error?: string }>
+  disableClickThrough: () => Promise<{ success: boolean; error?: string }>
 }
 
 export const PROCESSING_EVENTS = {
@@ -225,7 +227,10 @@ const electronAPI = {
   getPlatform: () => process.platform,
   // These functions are kept for API compatibility but don't do anything now
   enableMouseInteraction: () => Promise.resolve({ success: true }),
-  disableMouseInteraction: () => Promise.resolve({ success: true })
+  disableMouseInteraction: () => Promise.resolve({ success: true }),
+  // New functions for click-through functionality
+  enableClickThrough: () => ipcRenderer.invoke("enable-click-through"),
+  disableClickThrough: () => ipcRenderer.invoke("disable-click-through")
 } as ElectronAPI
 
 // Before exposing the API

@@ -182,7 +182,32 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     }
   })
 
-  // Mouse interaction handlers are no longer needed as we're using a different approach
+  // Mouse interaction handlers for click-through functionality
+  ipcMain.handle("enable-click-through", () => {
+    try {
+      const mainWindow = deps.getMainWindow()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setIgnoreMouseEvents(true, { forward: true })
+      }
+      return { success: true }
+    } catch (error) {
+      console.error("Error enabling click-through:", error)
+      return { error: "Failed to enable click-through" }
+    }
+  })
+
+  ipcMain.handle("disable-click-through", () => {
+    try {
+      const mainWindow = deps.getMainWindow()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setIgnoreMouseEvents(false)
+      }
+      return { success: true }
+    } catch (error) {
+      console.error("Error disabling click-through:", error)
+      return { error: "Failed to disable click-through" }
+    }
+  })
 
   // Window movement handlers
   ipcMain.handle("trigger-move-left", () => {
