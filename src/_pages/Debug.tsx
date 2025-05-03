@@ -8,6 +8,7 @@ import SolutionCommands from "../components/Solutions/SolutionCommands"
 import { Screenshot } from "../types/screenshots"
 import { ComplexitySection, ContentSection } from "./Solutions"
 import { useToast } from "../contexts/toast"
+import { CopyButton } from "../components/ui/copy-button"
 
 const CodeSection = ({
   title,
@@ -31,7 +32,8 @@ const CodeSection = ({
         </div>
       </div>
     ) : (
-      <div className="w-full scrollable">
+      <div className="w-full scrollable relative">
+        <CopyButton text={code as string} />
         <SyntaxHighlighter
           showLineNumbers
           language={currentLanguage == "golang" ? "go" : currentLanguage}
@@ -409,7 +411,8 @@ const Debug: React.FC<DebugProps> = ({
                                   lineIndex = codeBlockEndIndex;
 
                                   return (
-                                    <div key={lineIndex} className="font-mono text-xs bg-black/50 p-3 my-2 rounded overflow-x-auto">
+                                    <div key={lineIndex} className="font-mono text-xs bg-black/50 p-3 my-2 rounded overflow-x-auto relative">
+                                      <CopyButton text={codeContent} className="top-1 right-1 p-1" />
                                       {codeContent}
                                     </div>
                                   );

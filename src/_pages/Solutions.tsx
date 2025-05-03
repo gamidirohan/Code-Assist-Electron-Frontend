@@ -11,6 +11,7 @@ import SolutionCommands from "../components/Solutions/SolutionCommands"
 import Debug from "./Debug"
 import { useToast } from "../contexts/toast"
 import { COMMAND_KEY } from "../utils/platform"
+import { CopyButton } from "../components/ui/copy-button"
 
 export const ContentSection = ({
   title,
@@ -62,7 +63,8 @@ const SolutionSection = ({
         </div>
       </div>
     ) : (
-      <div className="w-full scrollable">
+      <div className="w-full scrollable relative">
+        <CopyButton text={content as string} />
         <SyntaxHighlighter
           showLineNumbers
           language={currentLanguage == "golang" ? "go" : currentLanguage}
