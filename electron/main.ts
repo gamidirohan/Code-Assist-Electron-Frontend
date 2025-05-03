@@ -377,10 +377,19 @@ function handleWindowClosed(): void {
 // Window visibility functions
 function hideMainWindow(): void {
   if (!state.mainWindow?.isDestroyed()) {
+    // Get the current bounds
     const bounds = state.mainWindow.getBounds();
+
+    // Save the position and size
     state.windowPosition = { x: bounds.x, y: bounds.y };
     state.windowSize = { width: bounds.width, height: bounds.height };
+
+    console.log(`Saving window size: ${bounds.width}x${bounds.height}`);
+
+    // Make the window ignore mouse events and forward them
     state.mainWindow.setIgnoreMouseEvents(true, { forward: true });
+
+    // Hide the window by setting opacity to 0
     state.mainWindow.setOpacity(0);
     state.isWindowVisible = false;
     console.log('Window hidden, opacity set to 0');
@@ -390,10 +399,15 @@ function hideMainWindow(): void {
 function showMainWindow(): void {
   if (!state.mainWindow?.isDestroyed()) {
     if (state.windowPosition && state.windowSize) {
+      // Ensure the window size is applied correctly
       state.mainWindow.setBounds({
-        ...state.windowPosition,
-        ...state.windowSize
+        x: state.windowPosition.x,
+        y: state.windowPosition.y,
+        width: state.windowSize.width,
+        height: state.windowSize.height
       });
+
+      console.log(`Applying window size: ${state.windowSize.width}x${state.windowSize.height}`);
     }
 
     // Make the window interactive for UI elements
@@ -406,6 +420,10 @@ function showMainWindow(): void {
     state.mainWindow.setContentProtection(true);
     state.mainWindow.setOpacity(0); // Set opacity to 0 before showing
     state.mainWindow.showInactive(); // Use showInactive instead of show+focus
+
+    // Force a repaint before showing
+    state.mainWindow.webContents.invalidate();
+
     state.mainWindow.setOpacity(1); // Then set opacity to 1 after showing
     state.isWindowVisible = true;
     console.log('Window shown with showInactive(), opacity set to 1');
@@ -468,9 +486,9 @@ function setWindowDimensions(width: number, height: number): void {
     const workArea = primaryDisplay.workAreaSize
     const maxWidth = Math.floor(workArea.width * 0.5)
 
-    // Calculate dimensions based on content
+    // Add padding to ensure all content is visible
     const contentWidth = Math.min(width + 32, maxWidth)
-    const contentHeight = Math.ceil(height)
+    const contentHeight = Math.ceil(height + 16) // Add extra padding for height
 
     // Set the window size to match the content exactly
     state.mainWindow.setBounds({
@@ -479,6 +497,15 @@ function setWindowDimensions(width: number, height: number): void {
       width: contentWidth,
       height: contentHeight
     })
+
+    // Update the window size in state
+    state.windowSize = {
+      width: contentWidth,
+      height: contentHeight
+    }
+
+    // Force a repaint to ensure the window size is updated
+    state.mainWindow.webContents.invalidate()
 
     console.log(`Window dimensions updated: ${contentWidth}x${contentHeight}`)
   }
@@ -574,7 +601,7 @@ app.on("open-url", (event, url) => {
 })
 
 // Handle second instance (removed auth callback handling)
-app.on("second-instance", (event, commandLine) => {
+app.on("second-instance", (_event, commandLine) => {
   console.log("second-instance event received:", commandLine)
 
   // Focus or create the main window

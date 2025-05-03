@@ -211,11 +211,21 @@ const Solutions: React.FC<SolutionsProps> = ({
     // Height update logic
     const updateDimensions = () => {
       if (contentRef.current) {
+        // Get the actual content dimensions
         let contentHeight = contentRef.current.scrollHeight
         const contentWidth = contentRef.current.scrollWidth
+
+        // Add tooltip height if visible
         if (isTooltipVisible) {
           contentHeight += tooltipHeight
         }
+
+        // Add some extra padding to ensure all content is visible
+        contentHeight += 20
+
+        console.log(`Updating content dimensions: ${contentWidth}x${contentHeight}`)
+
+        // Send dimensions to main process
         window.electronAPI.updateContentDimensions({
           width: contentWidth,
           height: contentHeight
@@ -224,10 +234,16 @@ const Solutions: React.FC<SolutionsProps> = ({
     }
 
     // Initialize resize observer
-    const resizeObserver = new ResizeObserver(updateDimensions)
+    const resizeObserver = new ResizeObserver(() => {
+      // Use setTimeout to ensure we get the final size after all DOM updates
+      setTimeout(updateDimensions, 0)
+    })
+
     if (contentRef.current) {
       resizeObserver.observe(contentRef.current)
     }
+
+    // Initial update
     updateDimensions()
 
     // Set up event listeners
@@ -518,8 +534,22 @@ const Solutions: React.FC<SolutionsProps> = ({
       })
     ]
 
+    // Set up mutation observer to detect DOM changes
+    const mutationObserver = new MutationObserver(() => {
+      setTimeout(updateDimensions, 0)
+    })
+
+    if (contentRef.current) {
+      mutationObserver.observe(contentRef.current, {
+        childList: true,
+        subtree: true,
+        attributes: true
+      })
+    }
+
     return () => {
       resizeObserver.disconnect()
+      mutationObserver.disconnect()
       cleanupFunctions.forEach((cleanup) => cleanup())
     }
   }, [isTooltipVisible, tooltipHeight])
