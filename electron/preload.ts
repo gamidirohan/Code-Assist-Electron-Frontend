@@ -47,6 +47,8 @@ interface ElectronAPI {
   onCreditsUpdated: (callback: (credits: number) => void) => () => void
   onOutOfCredits: (callback: () => void) => () => void
   getPlatform: () => string
+  enableMouseInteraction: () => Promise<{ success: boolean; error?: string }>
+  disableMouseInteraction: () => Promise<{ success: boolean; error?: string }>
 }
 
 export const PROCESSING_EVENTS = {
@@ -220,7 +222,9 @@ const electronAPI = {
       ipcRenderer.removeListener("credits-updated", subscription)
     }
   },
-  getPlatform: () => process.platform
+  getPlatform: () => process.platform,
+  enableMouseInteraction: () => ipcRenderer.invoke("enable-mouse-interaction"),
+  disableMouseInteraction: () => ipcRenderer.invoke("disable-mouse-interaction")
 } as ElectronAPI
 
 // Before exposing the API

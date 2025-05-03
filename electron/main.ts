@@ -239,6 +239,9 @@ async function createWindow(): Promise<void> {
 
   state.mainWindow = new BrowserWindow(windowSettings)
 
+  // Enable click-through for transparent areas
+  state.mainWindow.setIgnoreMouseEvents(true, { forward: true })
+
   // Add more detailed logging for window events
   state.mainWindow.webContents.on("did-finish-load", () => {
     console.log("Window finished loading")
@@ -277,7 +280,7 @@ async function createWindow(): Promise<void> {
     // In production, load from the built files
     const indexPath = path.join(__dirname, "../dist/index.html")
     console.log("Loading production build:", indexPath)
-    
+
     if (fs.existsSync(indexPath)) {
       state.mainWindow.loadFile(indexPath)
     } else {
@@ -330,6 +333,26 @@ async function createWindow(): Promise<void> {
   state.mainWindow.on("resize", handleWindowResize)
   state.mainWindow.on("closed", handleWindowClosed)
 
+  // Set up content loaded event to enable interactive elements
+  state.mainWindow.webContents.on('dom-ready', () => {
+    // Add a script to detect clicks on interactive elements
+    state.mainWindow.webContents.executeJavaScript(`
+      document.addEventListener('mousedown', (e) => {
+        // Check if the click is on an interactive element
+        const isInteractive = e.target.closest('button, a, input, select, textarea, [role="button"], [tabindex]');
+        if (isInteractive) {
+          // Send a message to enable mouse events temporarily
+          window.electronAPI.enableMouseInteraction();
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        // Re-enable click-through after interaction
+        window.electronAPI.disableMouseInteraction();
+      });
+    `);
+  });
+
   // Initialize window state
   const bounds = state.mainWindow.getBounds()
   state.windowPosition = { x: bounds.x, y: bounds.y }
@@ -337,10 +360,10 @@ async function createWindow(): Promise<void> {
   state.currentX = bounds.x
   state.currentY = bounds.y
   state.isWindowVisible = true
-  
+
   // Set opacity based on user preferences or hide initially
   // Ensure the window is visible for the first launch or if opacity > 0.1
-  
+
   // Always make sure window is shown first
   state.mainWindow.showInactive(); // Use showInactive for consistency
     console.log('Initial opacity too low, setting to 0 and hiding window');
@@ -390,7 +413,8 @@ function showMainWindow(): void {
         ...state.windowSize
       });
     }
-    state.mainWindow.setIgnoreMouseEvents(false);
+    // Keep ignoring mouse events in transparent areas, but forward them
+    state.mainWindow.setIgnoreMouseEvents(true, { forward: true });
     state.mainWindow.setAlwaysOnTop(true, "screen-saver", 1);
     state.mainWindow.setVisibleOnAllWorkspaces(true, {
       visibleOnFullScreen: true
@@ -400,7 +424,7 @@ function showMainWindow(): void {
     state.mainWindow.showInactive(); // Use showInactive instead of show+focus
     state.mainWindow.setOpacity(1); // Then set opacity to 1 after showing
     state.isWindowVisible = true;
-    console.log('Window shown with showInactive(), opacity set to 1');
+    console.log('Window shown with showInactive(), opacity set to 1, click-through enabled for transparent areas');
   }
 }
 
@@ -492,21 +516,21 @@ async function initializeApp() {
     const sessionPath = path.join(appDataPath, 'session')
     const tempPath = path.join(appDataPath, 'temp')
     const cachePath = path.join(appDataPath, 'cache')
-    
+
     // Create directories if they don't exist
     for (const dir of [appDataPath, sessionPath, tempPath, cachePath]) {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true })
       }
     }
-    
+
     app.setPath('userData', appDataPath)
-    app.setPath('sessionData', sessionPath)      
+    app.setPath('sessionData', sessionPath)
     app.setPath('temp', tempPath)
     app.setPath('cache', cachePath)
-      
+
     loadEnvVariables()
-    
+
     initializeHelpers()
     initializeIpcHandlers({
       getMainWindow,
@@ -561,7 +585,7 @@ app.on("open-url", (event, url) => {
 // Handle second instance (removed auth callback handling)
 app.on("second-instance", (event, commandLine) => {
   console.log("second-instance event received:", commandLine)
-  
+
   // Focus or create the main window
   if (!state.mainWindow) {
     createWindow()
