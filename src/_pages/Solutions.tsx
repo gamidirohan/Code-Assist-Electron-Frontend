@@ -32,7 +32,7 @@ export const ContentSection = ({
         </p>
       </div>
     ) : (
-      <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px]">
+      <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px] scrollable">
         {content}
       </div>
     )}
@@ -62,7 +62,7 @@ const SolutionSection = ({
         </div>
       </div>
     ) : (
-      <div className="w-full">
+      <div className="w-full scrollable">
         <SyntaxHighlighter
           showLineNumbers
           language={currentLanguage == "golang" ? "go" : currentLanguage}
@@ -110,7 +110,7 @@ export const ComplexitySection = ({
         </div>
       </div>
     ) : (
-      <div className="flex flex-col space-y-3 bg-black/30 rounded-md p-3">
+      <div className="flex flex-col space-y-3 bg-black/30 rounded-md p-3 scrollable">
         <div className="flex flex-col">
           <div className="text-[13px] leading-[1.4] text-white/90">
             <span className="font-semibold">Time:</span> {timeComplexity}
@@ -295,10 +295,10 @@ const Solutions: React.FC<SolutionsProps> = ({
         setSpaceComplexityData(solution?.space_complexity || null)
         console.error("Processing error:", error)
       }),
-      
-      
-      
-      
+
+
+
+
       //when the initial solution is generated, we'll set the solution data to that
       window.electronAPI.onSolutionSuccess((data) => {
         if (!data) {
@@ -306,7 +306,7 @@ const Solutions: React.FC<SolutionsProps> = ({
           return
         }
         console.log("Raw solution data:", data)
-      
+
         // 1. Parse the JSON string from data.code
         let rawSolutionData;
         try {
@@ -316,8 +316,8 @@ const Solutions: React.FC<SolutionsProps> = ({
           console.warn("Using raw data.code as is because JSON parsing failed.");
           rawSolutionData = data.code; // If parsing fails, use the raw string (less ideal, but prevents crashing)
         }
-      
-      
+
+
         // Helper function to format JSON strings or extract content from markdown code blocks
         interface ParsedField {
           Code?: string
@@ -327,10 +327,10 @@ const Solutions: React.FC<SolutionsProps> = ({
           complexity_explanation?: string
           [key: string]: any
         }
-      
+
         const formatField = (field: unknown): string | null | unknown => {
           if (!field) return null
-      
+
           // If it's a string that looks like JSON, try to parse it
           if (
             typeof field === "string" &&
@@ -338,7 +338,7 @@ const Solutions: React.FC<SolutionsProps> = ({
           ) {
             try {
               const parsed = JSON.parse(field) as ParsedField
-      
+
               // Handle JSON object with code/explanation properties
               if (parsed.Code) {
                 return parsed.Code.replace(/```python\n/g, "")
@@ -356,26 +356,26 @@ const Solutions: React.FC<SolutionsProps> = ({
                 // For other objects, stringify but with formatting
                 return JSON.stringify(parsed, null, 2)
               }
-      
+
               // If it's a primitive value, return as is
               return parsed
             } catch (e) {
               console.log("Not a valid JSON string, using as is")
             }
           }
-      
+
           // If it's a string with markdown code blocks, clean them up
           if (typeof field === "string" && field.includes("```")) {
             return field.replace(/```python\n/g, "")
               .replace(/```\n?/g, "")
               .trim()
           }
-      
+
           // Return the original field if no formatting was applied
           return field
         }
-      
-      
+
+
         // Initialize variables to hold formatted data, using rawSolutionData now
         let formattedCode;
         let formattedThoughts;
@@ -383,19 +383,19 @@ const Solutions: React.FC<SolutionsProps> = ({
         let formattedSpaceComplexity;
         let formattedTimeComplexityExplanation = null;
         let formattedSpaceComplexityExplanation = null;
-      
-      
+
+
         if (typeof rawSolutionData === 'object' && rawSolutionData !== null) {
           // 2. & 3. Extract and format fields from the parsed JSON object
           formattedCode = formatField(rawSolutionData.Code);
           formattedThoughts = formatField(rawSolutionData.Explanation);
           formattedTimeComplexity = formatField(rawSolutionData["Time Complexity"]);
           formattedSpaceComplexity = formatField(rawSolutionData["Space Complexity"]);
-          
+
           // Process complexity explanation if exists
           if (rawSolutionData.complexity_explanation) {
             const complexityExplanation = formatField(rawSolutionData.complexity_explanation) as string;
-            
+
             // Try to split the explanation if it contains both time and space complexity info
             if (complexityExplanation && typeof complexityExplanation === 'string') {
               if (complexityExplanation.toLowerCase().includes('time') && complexityExplanation.toLowerCase().includes('space')) {
@@ -403,7 +403,7 @@ const Solutions: React.FC<SolutionsProps> = ({
                 const sentences = complexityExplanation.split('. ');
                 const timeExplanation = sentences.find(s => s.toLowerCase().includes('time'));
                 const spaceExplanation = sentences.find(s => s.toLowerCase().includes('space'));
-                
+
                 formattedTimeComplexityExplanation = timeExplanation || complexityExplanation;
                 formattedSpaceComplexityExplanation = spaceExplanation || complexityExplanation;
               } else {
@@ -421,8 +421,8 @@ const Solutions: React.FC<SolutionsProps> = ({
           formattedTimeComplexity = null;
           formattedSpaceComplexity = null;
         }
-      
-      
+
+
         console.log("Formatted solution data:", {
           code: formattedCode,
           thoughts: formattedThoughts,
@@ -431,7 +431,7 @@ const Solutions: React.FC<SolutionsProps> = ({
           time_complexity_explanation: formattedTimeComplexityExplanation,
           space_complexity_explanation: formattedSpaceComplexityExplanation
         });
-      
+
         // 4. Create the solution data object with formatted fields
         const solutionData = {
           code: formattedCode,
@@ -448,7 +448,7 @@ const Solutions: React.FC<SolutionsProps> = ({
           timeComplexityData: typeof solutionData.time_complexity === "string" ? solutionData.time_complexity : null,
           spaceComplexityData: typeof solutionData.space_complexity === "string" ? solutionData.space_complexity : null
         });
-      
+
         // 5. Update the query cache and state (rest of your original code is fine)
         queryClient.setQueryData(["solution"], solutionData);
         setSolutionData(typeof solutionData.code === "string" ? solutionData.code : null);
@@ -457,8 +457,8 @@ const Solutions: React.FC<SolutionsProps> = ({
         setSpaceComplexityData(typeof solutionData.space_complexity === "string" ? solutionData.space_complexity : null);
         setTimeComplexityExplanation(solutionData.time_complexity_explanation);
         setSpaceComplexityExplanation(solutionData.space_complexity_explanation);
-      
-      
+
+
         // Fetch latest screenshots - keep this part as is
         const fetchScreenshots = async () => {
           try {
@@ -625,7 +625,7 @@ const Solutions: React.FC<SolutionsProps> = ({
           {/* Main Content - Modified width constraints */}
           <div className="w-full text-sm text-black bg-black/60 rounded-md">
             <div className="rounded-lg overflow-hidden">
-              <div className="px-4 py-3 space-y-4 max-w-full">
+              <div className="px-4 py-3 space-y-4 max-w-full scrollable">
                 {!solutionData && (
                   <>
                     <ContentSection
