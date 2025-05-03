@@ -330,32 +330,9 @@ async function createWindow(): Promise<void> {
   state.mainWindow.on("resize", handleWindowResize)
   state.mainWindow.on("closed", handleWindowClosed)
 
-  // Set up content loaded event to enable interactive elements
+  // Set up content loaded event
   state.mainWindow.webContents.on('dom-ready', () => {
-    console.log("DOM is ready, setting up window behavior");
-
-    // Add a script to detect mouse position and handle interactions
-    state.mainWindow.webContents.executeJavaScript(`
-      document.addEventListener('mousemove', (e) => {
-        // Get the element under the mouse
-        const element = document.elementFromPoint(e.clientX, e.clientY);
-
-        // Check if we're over a transparent area (no element or body with no background)
-        const isTransparentArea = !element ||
-          (element.tagName === 'BODY' &&
-           (!window.getComputedStyle(element).backgroundColor ||
-            window.getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)'));
-
-        // Send a message to the main process
-        if (window.electronAPI) {
-          if (isTransparentArea) {
-            window.electronAPI.enableClickThrough();
-          } else {
-            window.electronAPI.disableClickThrough();
-          }
-        }
-      });
-    `);
+    console.log("DOM is ready, window behavior initialized");
   });
 
   // Initialize window state
@@ -419,16 +396,8 @@ function showMainWindow(): void {
       });
     }
 
-    // Enable click-through for transparent areas while keeping UI interactive
-    try {
-      // This is the key part - it makes non-transparent areas interactive
-      // while allowing click-through for transparent areas
-      state.mainWindow.setIgnoreMouseEvents(true, { forward: true });
-    } catch (error) {
-      console.error("Error setting ignore mouse events:", error);
-      // Fallback to standard behavior if the advanced option isn't supported
-      state.mainWindow.setIgnoreMouseEvents(false);
-    }
+    // Make the window interactive for UI elements
+    state.mainWindow.setIgnoreMouseEvents(false);
 
     state.mainWindow.setAlwaysOnTop(true, "screen-saver", 1);
     state.mainWindow.setVisibleOnAllWorkspaces(true, {
@@ -439,7 +408,7 @@ function showMainWindow(): void {
     state.mainWindow.showInactive(); // Use showInactive instead of show+focus
     state.mainWindow.setOpacity(1); // Then set opacity to 1 after showing
     state.isWindowVisible = true;
-    console.log('Window shown with showInactive(), opacity set to 1, click-through enabled for transparent areas');
+    console.log('Window shown with showInactive(), opacity set to 1');
   }
 }
 
@@ -499,12 +468,19 @@ function setWindowDimensions(width: number, height: number): void {
     const workArea = primaryDisplay.workAreaSize
     const maxWidth = Math.floor(workArea.width * 0.5)
 
+    // Calculate dimensions based on content
+    const contentWidth = Math.min(width + 32, maxWidth)
+    const contentHeight = Math.ceil(height)
+
+    // Set the window size to match the content exactly
     state.mainWindow.setBounds({
       x: Math.min(currentX, workArea.width - maxWidth),
       y: currentY,
-      width: Math.min(width + 32, maxWidth),
-      height: Math.ceil(height)
+      width: contentWidth,
+      height: contentHeight
     })
+
+    console.log(`Window dimensions updated: ${contentWidth}x${contentHeight}`)
   }
 }
 
