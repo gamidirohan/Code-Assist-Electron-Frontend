@@ -223,8 +223,9 @@ const electronAPI = {
     }
   },
   getPlatform: () => process.platform,
-  enableMouseInteraction: () => ipcRenderer.invoke("enable-mouse-interaction"),
-  disableMouseInteraction: () => ipcRenderer.invoke("disable-mouse-interaction")
+  // These functions are kept for API compatibility but don't do anything now
+  enableMouseInteraction: () => Promise.resolve({ success: true }),
+  disableMouseInteraction: () => Promise.resolve({ success: true })
 } as ElectronAPI
 
 // Before exposing the API

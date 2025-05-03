@@ -182,32 +182,7 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     }
   })
 
-  // Mouse interaction handlers
-  ipcMain.handle("enable-mouse-interaction", () => {
-    try {
-      const mainWindow = deps.getMainWindow()
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.setIgnoreMouseEvents(false)
-      }
-      return { success: true }
-    } catch (error) {
-      console.error("Error enabling mouse interaction:", error)
-      return { error: "Failed to enable mouse interaction" }
-    }
-  })
-
-  ipcMain.handle("disable-mouse-interaction", () => {
-    try {
-      const mainWindow = deps.getMainWindow()
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.setIgnoreMouseEvents(true, { forward: true })
-      }
-      return { success: true }
-    } catch (error) {
-      console.error("Error disabling mouse interaction:", error)
-      return { error: "Failed to disable mouse interaction" }
-    }
-  })
+  // Mouse interaction handlers are no longer needed as we're using a different approach
 
   // Window movement handlers
   ipcMain.handle("trigger-move-left", () => {

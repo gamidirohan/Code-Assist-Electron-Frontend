@@ -239,9 +239,6 @@ async function createWindow(): Promise<void> {
 
   state.mainWindow = new BrowserWindow(windowSettings)
 
-  // Enable click-through for transparent areas
-  state.mainWindow.setIgnoreMouseEvents(true, { forward: true })
-
   // Add more detailed logging for window events
   state.mainWindow.webContents.on("did-finish-load", () => {
     console.log("Window finished loading")
@@ -335,22 +332,7 @@ async function createWindow(): Promise<void> {
 
   // Set up content loaded event to enable interactive elements
   state.mainWindow.webContents.on('dom-ready', () => {
-    // Add a script to detect clicks on interactive elements
-    state.mainWindow.webContents.executeJavaScript(`
-      document.addEventListener('mousedown', (e) => {
-        // Check if the click is on an interactive element
-        const isInteractive = e.target.closest('button, a, input, select, textarea, [role="button"], [tabindex]');
-        if (isInteractive) {
-          // Send a message to enable mouse events temporarily
-          window.electronAPI.enableMouseInteraction();
-        }
-      });
-
-      document.addEventListener('mouseup', () => {
-        // Re-enable click-through after interaction
-        window.electronAPI.disableMouseInteraction();
-      });
-    `);
+    console.log("DOM is ready, setting up window behavior");
   });
 
   // Initialize window state
@@ -413,8 +395,10 @@ function showMainWindow(): void {
         ...state.windowSize
       });
     }
-    // Keep ignoring mouse events in transparent areas, but forward them
-    state.mainWindow.setIgnoreMouseEvents(true, { forward: true });
+
+    // Make sure we don't ignore mouse events - we need to interact with the UI
+    state.mainWindow.setIgnoreMouseEvents(false);
+
     state.mainWindow.setAlwaysOnTop(true, "screen-saver", 1);
     state.mainWindow.setVisibleOnAllWorkspaces(true, {
       visibleOnFullScreen: true
@@ -424,7 +408,7 @@ function showMainWindow(): void {
     state.mainWindow.showInactive(); // Use showInactive instead of show+focus
     state.mainWindow.setOpacity(1); // Then set opacity to 1 after showing
     state.isWindowVisible = true;
-    console.log('Window shown with showInactive(), opacity set to 1, click-through enabled for transparent areas');
+    console.log('Window shown with showInactive(), opacity set to 1, mouse interaction enabled');
   }
 }
 
