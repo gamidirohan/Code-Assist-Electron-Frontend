@@ -38,6 +38,10 @@ export interface ElectronAPI {
   triggerMoveRight: () => Promise<{ success: boolean; error?: string }>
   triggerMoveUp: () => Promise<{ success: boolean; error?: string }>
   triggerMoveDown: () => Promise<{ success: boolean; error?: string }>
+  triggerScaleUp: () => Promise<{ success: boolean; error?: string }>
+  triggerScaleDown: () => Promise<{ success: boolean; error?: string }>
+  triggerScaleReset: () => Promise<{ success: boolean; error?: string }>
+  onScaleWindow: (callback: (data: { direction: "up" | "down" | "reset" }) => void) => () => void
   onSubscriptionUpdated: (callback: () => void) => () => void
   onSubscriptionPortalClosed: (callback: () => void) => () => void
   startUpdate: () => Promise<{ success: boolean; error?: string }>
@@ -48,6 +52,8 @@ export interface ElectronAPI {
   decrementCredits: () => Promise<void>
   setInitialCredits: (credits: number) => Promise<void>
   onCreditsUpdated: (callback: (credits: number) => void) => () => void
+  onWindowAspectChanged: (callback: (data: { isMobile: boolean, width: number, height: number }) => void) => () => void
+  removeAllListeners: (eventName: string) => void
   onOutOfCredits: (callback: () => void) => () => void
   openSettingsPortal: () => Promise<void>
   getPlatform: () => string

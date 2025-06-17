@@ -39,6 +39,10 @@ interface ElectronAPI {
   triggerMoveRight: () => Promise<{ success: boolean; error?: string }>
   triggerMoveUp: () => Promise<{ success: boolean; error?: string }>
   triggerMoveDown: () => Promise<{ success: boolean; error?: string }>
+  triggerScaleUp: () => Promise<{ success: boolean; error?: string }>
+  triggerScaleDown: () => Promise<{ success: boolean; error?: string }>
+  triggerScaleReset: () => Promise<{ success: boolean; error?: string }>
+  onScaleWindow: (callback: (data: { direction: "up" | "down" | "reset" }) => void) => () => void
   startUpdate: () => Promise<{ success: boolean; error?: string }>
   installUpdate: () => void
   onUpdateAvailable: (callback: (info: any) => void) => () => void
@@ -198,6 +202,9 @@ const electronAPI = {
   triggerMoveRight: () => ipcRenderer.invoke("trigger-move-right"),
   triggerMoveUp: () => ipcRenderer.invoke("trigger-move-up"),
   triggerMoveDown: () => ipcRenderer.invoke("trigger-move-down"),
+  triggerScaleUp: () => ipcRenderer.invoke("scale-window", { direction: "up" }),
+  triggerScaleDown: () => ipcRenderer.invoke("scale-window", { direction: "down" }),
+  triggerScaleReset: () => ipcRenderer.invoke("scale-window", { direction: "reset" }),
   startUpdate: () => ipcRenderer.invoke("start-update"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
   onUpdateAvailable: (callback: (info: any) => void) => {
@@ -221,6 +228,23 @@ const electronAPI = {
     return () => {
       ipcRenderer.removeListener("credits-updated", subscription)
     }
+  },
+  onWindowAspectChanged: (callback: (data: { isMobile: boolean, width: number, height: number }) => void) => {
+    const subscription = (_event: any, data: { isMobile: boolean, width: number, height: number }) => callback(data)
+    ipcRenderer.on("window-aspect-changed", subscription)
+    return () => {
+      ipcRenderer.removeListener("window-aspect-changed", subscription)
+    }
+  },
+  onScaleWindow: (callback: (data: { direction: "up" | "down" | "reset" }) => void) => {
+    const subscription = (_event: any, data: { direction: "up" | "down" | "reset" }) => callback(data)
+    ipcRenderer.on("scale-window", subscription)
+    return () => {
+      ipcRenderer.removeListener("scale-window", subscription)
+    }
+  },
+  removeAllListeners: (eventName: string) => {
+    ipcRenderer.removeAllListeners(eventName)
   },
   getPlatform: () => process.platform,
   // These functions are kept for API compatibility but don't do anything now

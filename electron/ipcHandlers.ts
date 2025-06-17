@@ -45,6 +45,11 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     }
   )
 
+  // Window scaling handler
+  ipcMain.handle("scale-window", (event, { direction }: { direction: "up" | "down" | "reset" }) => {
+    deps.scaleWindow(direction)
+  })
+
   // Screenshot management handlers
   ipcMain.handle("get-screenshots", async () => {
     try {

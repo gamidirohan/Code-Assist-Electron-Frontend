@@ -112,30 +112,31 @@ export class ShortcutsHelper {
       this.adjustOpacity(0.1)
     })
     
-    // Zoom controls
+    // Scale controls (resize the entire window, not zoom content)
     globalShortcut.register("CommandOrControl+-", () => {
-      console.log("Command/Ctrl + - pressed. Zooming out.")
+      console.log("Command/Ctrl + - pressed. Scaling window down.")
       const mainWindow = this.deps.getMainWindow()
       if (mainWindow) {
-        const currentZoom = mainWindow.webContents.getZoomLevel()
-        mainWindow.webContents.setZoomLevel(currentZoom - 0.5)
+        // Send IPC event to scale window down
+        mainWindow.webContents.send("scale-window", { direction: "down" })
       }
     })
     
     globalShortcut.register("CommandOrControl+0", () => {
-      console.log("Command/Ctrl + 0 pressed. Resetting zoom.")
+      console.log("Command/Ctrl + 0 pressed. Resetting window scale.")
       const mainWindow = this.deps.getMainWindow()
       if (mainWindow) {
-        mainWindow.webContents.setZoomLevel(0)
+        // Send IPC event to reset window scale
+        mainWindow.webContents.send("scale-window", { direction: "reset" })
       }
     })
     
     globalShortcut.register("CommandOrControl+=", () => {
-      console.log("Command/Ctrl + = pressed. Zooming in.")
+      console.log("Command/Ctrl + = pressed. Scaling window up.")
       const mainWindow = this.deps.getMainWindow()
       if (mainWindow) {
-        const currentZoom = mainWindow.webContents.getZoomLevel()
-        mainWindow.webContents.setZoomLevel(currentZoom + 0.5)
+        // Send IPC event to scale window up
+        mainWindow.webContents.send("scale-window", { direction: "up" })
       }
     })
     
@@ -147,6 +148,27 @@ export class ShortcutsHelper {
         // Send an event to the renderer to delete the last screenshot
         mainWindow.webContents.send("delete-last-screenshot")
       }
+    })
+    
+    // Window movement shortcuts
+    globalShortcut.register("CommandOrControl+Left", () => {
+      console.log("Command/Ctrl + Left pressed. Moving window left.")
+      this.deps.moveWindowLeft()
+    })
+    
+    globalShortcut.register("CommandOrControl+Right", () => {
+      console.log("Command/Ctrl + Right pressed. Moving window right.")
+      this.deps.moveWindowRight()
+    })
+    
+    globalShortcut.register("CommandOrControl+Up", () => {
+      console.log("Command/Ctrl + Up pressed. Moving window up.")
+      this.deps.moveWindowUp()
+    })
+    
+    globalShortcut.register("CommandOrControl+Down", () => {
+      console.log("Command/Ctrl + Down pressed. Moving window down.")
+      this.deps.moveWindowDown()
     })
     
     // Unregister shortcuts when quitting
