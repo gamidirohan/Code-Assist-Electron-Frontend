@@ -12,6 +12,16 @@ import {
   ToastTitle,
   ToastViewport
 } from "./components/ui/toast"
+
+// Extend the Window interface to include custom properties
+declare global {
+  interface Window {
+    __IS_INITIALIZED__?: boolean
+    __LANGUAGE__?: string
+    __MODEL__?: string
+    __CREDITS__: number | undefined
+  }
+}
 import { ToastContext } from "./contexts/toast"
 
 // Create a React Query client
@@ -31,15 +41,23 @@ const queryClient = new QueryClient({
 
 // Root component that provides the QueryClient
 function App() {
-  const [toastState, setToastState] = useState({
+  type ToastVariant = "neutral" | "success" | "error"
+
+  const [toastState, setToastState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: ToastVariant;
+  }>({
     open: false,
     title: "",
     description: "",
-    variant: "neutral" as const
+    variant: "neutral"
   })
   const [credits, setCredits] = useState<number>(999) // Set a high default value
   const [currentLanguage, setCurrentLanguage] = useState<string>("python")
   const [isInitialized, setIsInitialized] = useState(false)
+  const [currentModel, setCurrentModel] = useState("llama3-70b-8192")
 
   // Helper function to safely update credits
   const updateCredits = useCallback((newCredits: number) => {

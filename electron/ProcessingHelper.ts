@@ -7,9 +7,10 @@ import { app } from "electron"
 import { BrowserWindow } from "electron"
 
 const isDev = !app.isPackaged
+// Update this URL to your actual backend API endpoint
 const API_BASE_URL = isDev
   ? "http://localhost:3000"
-  : "https://www.interviewcoder.co"
+  : "http://localhost:3000" // Change this to your production API URL
 
 export class ProcessingHelper {
   private deps: IProcessingHelperDeps
@@ -77,7 +78,7 @@ export class ProcessingHelper {
     if (!mainWindow) return
 
     // Credits check is bypassed - we always have enough credits
-    
+
     const view = this.deps.getView()
     console.log("Processing screenshots in view:", view)
 
@@ -240,6 +241,10 @@ export class ProcessingHelper {
 
         // First API call - extract problem info
         try {
+          console.log(`Making API request to: ${API_BASE_URL}/api/extract`)
+          console.log(`Using language: ${language}`)
+          console.log(`Number of screenshots: ${imageDataList.length}`)
+
           const extractResponse = await axios.post(
             `${API_BASE_URL}/api/extract`,
             { imageDataList, language },
@@ -273,10 +278,10 @@ export class ProcessingHelper {
             const solutionsResult = await this.generateSolutionsHelper(signal)
             if (solutionsResult.success) {
               console.log("Solution generation successful", solutionsResult.data)
-              
+
               // Use the solution data directly without replacing newlines
               const formattedData = solutionsResult.data;
-              
+
               // Clear any existing extra screenshots before transitioning to solutions view
               this.screenshotHelper.clearExtraScreenshotQueue()
               mainWindow.webContents.send(
@@ -304,7 +309,10 @@ export class ProcessingHelper {
             status: error.response?.status,
             data: error.response?.data,
             message: error.message,
-            code: error.code
+            code: error.code,
+            url: `${API_BASE_URL}/api/extract`,
+            isDev: !app.isPackaged,
+            networkError: error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND'
           })
 
           // Handle API-specific errors
@@ -552,7 +560,7 @@ export class ProcessingHelper {
       this.currentProcessingAbortController.abort();
       this.currentProcessingAbortController = null;
     }
-    
+
     if (this.currentExtraProcessingAbortController) {
       this.currentExtraProcessingAbortController.abort();
       this.currentExtraProcessingAbortController = null;

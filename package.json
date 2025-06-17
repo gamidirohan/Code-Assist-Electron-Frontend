@@ -4,9 +4,10 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "clean": "rimraf dist dist-electron",
+    "clean:all": "rimraf dist dist-electron release",
     "dev": "cross-env NODE_ENV=production npm run clean && vite build && tsc -p tsconfig.electron.json && electron .",
     "dev:prod": "cross-env NODE_ENV=production npm run clean && vite build && tsc -p tsconfig.electron.json && electron .",
-    "build": "cross-env NODE_ENV=production rimraf dist dist-electron && vite build && tsc -p tsconfig.electron.json && electron-builder"
+    "build": "cross-env NODE_ENV=production npm run clean:all && vite build && tsc -p tsconfig.electron.json && electron-builder"
   },
   "build": {
     "appId": "com.chunginlee.interviewcoder",
