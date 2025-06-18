@@ -3,6 +3,8 @@ import { IShortcutsHelperDeps } from "./main"
 
 export class ShortcutsHelper {
   private deps: IShortcutsHelperDeps
+  private lastScaleTime = 0
+  private scaleDebounceMs = 150 // Prevent scaling faster than every 150ms
 
   constructor(deps: IShortcutsHelperDeps) {
     this.deps = deps
@@ -21,6 +23,23 @@ export class ShortcutsHelper {
     // If we're making the window visible, also make sure it's shown and interaction is enabled
     if (newOpacity > 0.1 && !this.deps.isVisible()) {
       this.deps.toggleMainWindow();
+    }
+  }
+
+  private lastScaleDirection: "up" | "down" | "reset" | null = null;
+
+  private debouncedScale(direction: "up" | "down" | "reset"): void {
+    const now = Date.now()
+    if (now - this.lastScaleTime < this.scaleDebounceMs) {
+      console.log(`Scale debounced (${now - this.lastScaleTime}ms since last)`)
+      return
+    }
+    this.lastScaleTime = now
+    this.lastScaleDirection = direction
+    
+    const mainWindow = this.deps.getMainWindow()
+    if (mainWindow) {
+      mainWindow.webContents.send("scale-window", { direction })
     }
   }
 
@@ -115,29 +134,17 @@ export class ShortcutsHelper {
     // Scale controls (resize the entire window, not zoom content)
     globalShortcut.register("CommandOrControl+-", () => {
       console.log("Command/Ctrl + - pressed. Scaling window down.")
-      const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
-        // Send IPC event to scale window down
-        mainWindow.webContents.send("scale-window", { direction: "down" })
-      }
+      this.debouncedScale("down")
     })
     
     globalShortcut.register("CommandOrControl+0", () => {
       console.log("Command/Ctrl + 0 pressed. Resetting window scale.")
-      const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
-        // Send IPC event to reset window scale
-        mainWindow.webContents.send("scale-window", { direction: "reset" })
-      }
+      this.debouncedScale("reset")
     })
     
     globalShortcut.register("CommandOrControl+=", () => {
       console.log("Command/Ctrl + = pressed. Scaling window up.")
-      const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
-        // Send IPC event to scale window up
-        mainWindow.webContents.send("scale-window", { direction: "up" })
-      }
+      this.debouncedScale("up")
     })
     
     // Delete last screenshot shortcut

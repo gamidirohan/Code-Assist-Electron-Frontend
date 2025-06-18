@@ -8,6 +8,14 @@ import { ShortcutsHelper } from "./shortcuts"
 import { initAutoUpdater } from "./autoUpdater"
 import * as dotenv from "dotenv"
 
+// Set the actual maximum displayable size as our baseline
+const BASE_WIDTH = 1344; // Actual maximum width (1.0x scale)
+const BASE_HEIGHT = 756; // Actual maximum height (1.0x scale)
+const MOBILE_RATIO_THRESHOLD = 0.6; // Scale factor below which mobile ratio is used
+const MOBILE_ASPECT_RATIO = 9 / 16; // Mobile aspect ratio (9:16)
+const DESKTOP_ASPECT_RATIO = 16 / 9; // Desktop aspect ratio (16:9)
+const BASE_MOBILE_WIDTH = 400; // Base width for mobile ratio
+
 // Constants
 const isDev = process.env.NODE_ENV === "development"
 
@@ -23,11 +31,11 @@ const state = {
   step: 0,
   currentX: 0,
   currentY: 0,
-  // For maintaining window center position
-  originalWidth: 1920,
-  originalHeight: 500,
   scale: 1.0,
   isZooming: false, // Added to manage zoom state
+  isManuallyScaled: false, // Track if user has manually scaled the window
+  isTogglingVisibility: false, // Track if we're in the middle of show/hide operation
+  lastResizeCall: 0, // Prevent resize loops
 
   // Application helpers
   screenshotHelper: null as ScreenshotHelper | null,
@@ -210,25 +218,21 @@ async function createWindow(): Promise<void> {
   state.screenWidth = workAreaSize.width
   state.screenHeight = workAreaSize.height
   state.step = 60
-
-  // Calculate initial window size with 16:9 aspect ratio
-  const baseWidth = 1920  // Full HD width
-  const baseHeight = Math.round(baseWidth / 16 * 9)  // ~1080
   
   // Scale down if needed to fit screen with 10% margin
   let scale = 1.0
-  let windowWidth = baseWidth
-  let windowHeight = baseHeight
+  let windowWidth = BASE_WIDTH
+  let windowHeight = BASE_HEIGHT
   
   if (windowWidth > workAreaSize.width * 0.9) {
-    scale = (workAreaSize.width * 0.9) / baseWidth
-    windowWidth = Math.round(baseWidth * scale)
-    windowHeight = Math.round(baseHeight * scale)
+    scale = (workAreaSize.width * 0.9) / BASE_WIDTH
+    windowWidth = Math.round(BASE_WIDTH * scale)
+    windowHeight = Math.round(BASE_HEIGHT * scale)
   }
   if (windowHeight > workAreaSize.height * 0.9) {
-    scale = (workAreaSize.height * 0.9) / baseHeight
-    windowHeight = Math.round(baseHeight * scale)
-    windowWidth = Math.round(baseWidth * scale)
+    scale = (workAreaSize.height * 0.9) / BASE_HEIGHT
+    windowHeight = Math.round(BASE_HEIGHT * scale)
+    windowWidth = Math.round(BASE_WIDTH * scale)
   }
   
   // Store initial scale
@@ -249,8 +253,8 @@ async function createWindow(): Promise<void> {
     height: windowHeight,
     minWidth: 300,   // Mobile minimum width
     minHeight: 533,  // Mobile minimum height (16:9 of 300)
-    maxWidth: 1920,  // Your display max width
-    maxHeight: 1080, // Your display max height
+    maxWidth: 1382,  // Hard maximum width
+    maxHeight: 777,  // Hard maximum height
     x: centerX,
     y: centerY,
     alwaysOnTop: true,
@@ -289,120 +293,120 @@ async function createWindow(): Promise<void> {
   // Handle zoom commands with strict aspect ratio and bounds checking
   state.mainWindow.webContents.on('before-input-event', async (event, input) => {
     if (input.control && (input.key === '+' || input.key === '-' || input.key === '=')) {
-      event.preventDefault()
-      
+      event.preventDefault();
+
       try {
-        resizeController.startZoom()
-        
-        const scaleStep = 0.1
-        const minScale = 0.5
-        const maxScale = 2.0
-        
+        resizeController.startZoom();
+
+        const scaleStep = 0.1;
+        const minScale = 0.6; // Minimum scale factor
+        const maxScale = 1.0; // Maximum scale factor
+
         // Calculate new scale with bounds checking
-        const currentScale = state.scale || 1.0
+        const currentScale = state.scale || 1.0;
         let newScale = input.key === '-' 
           ? Math.max(minScale, currentScale - scaleStep)
-          : Math.min(maxScale, currentScale + scaleStep)
-        
+          : Math.min(maxScale, currentScale + scaleStep);
+
         // Round to 2 decimal places to prevent floating point errors
-        newScale = Math.round(newScale * 100) / 100
-        
+        newScale = Math.round(newScale * 100) / 100;
+
         // Get screen dimensions
-        const { workArea } = screen.getPrimaryDisplay()
-        
+        const { workArea } = screen.getPrimaryDisplay();
+
         // Determine if we should use mobile aspect ratio (9:16) for smaller sizes
-        const useMobileRatio = newScale <= 0.6
-        
-        let newWidth, newHeight, aspectRatio
-        
+        const useMobileRatio = newScale <= MOBILE_RATIO_THRESHOLD;
+        const aspectRatio = useMobileRatio ? MOBILE_ASPECT_RATIO : DESKTOP_ASPECT_RATIO;
+
+        let newWidth, newHeight;
+
         if (useMobileRatio) {
           // Mobile phone aspect ratio (9:16)
-          const targetMobileWidth = 400  // Base mobile width
-          const targetMobileHeight = Math.round(targetMobileWidth * (16/9))  // 711
-          
-          newWidth = Math.round(targetMobileWidth * (newScale / 0.6))  // Scale within mobile range
-          newHeight = Math.round(newWidth * (16/9))  // Maintain 9:16 ratio
-          aspectRatio = 9/16
+          const targetMobileWidth = 400;  // Base mobile width
+          // Ensure minimum width is 300 when in mobile aspect ratio
+          const effectiveScale = Math.max(newScale, 300 / targetMobileWidth);
+          newWidth = Math.round(targetMobileWidth * effectiveScale);
+          newHeight = Math.round(newWidth * MOBILE_ASPECT_RATIO);
         } else {
           // Desktop aspect ratio (16:9)
-          const targetWidth = 1920
-          const targetHeight = 1080
-          
-          newWidth = Math.round(targetWidth * newScale)
-          newHeight = Math.round(targetHeight * newScale)
-          aspectRatio = 16/9
+          newWidth = Math.round(BASE_WIDTH * newScale);
+          newHeight = Math.round(BASE_HEIGHT * newScale);
         }
-        
-        // Ensure window fits on screen with margins
-        const maxWidth = Math.round(workArea.width * 0.9)
-        const maxHeight = Math.round(workArea.height * 0.9)
-        
-        if (newWidth > maxWidth) {
-          newWidth = maxWidth
-          if (useMobileRatio) {
-            newHeight = Math.round(maxWidth * (16/9))
-          } else {
-            newHeight = Math.round(maxWidth * (9/16))
-          }
+
+        // Ensure window fits on screen with margins when scaling down
+        if (newWidth > workArea.width * 0.9 || newHeight > workArea.height * 0.9) {
+          const maxWidth = Math.round(workArea.width * 0.9);
+          const maxHeight = Math.round(workArea.height * 0.9);
+          const scaleForWidth = maxWidth / newWidth;
+          const scaleForHeight = maxHeight / newHeight;
+          const constrainingScale = Math.min(scaleForWidth, scaleForHeight);
+          newWidth = Math.round(newWidth * constrainingScale);
+          newHeight = Math.round(newHeight * constrainingScale);
         }
-        
-        if (newHeight > maxHeight) {
-          newHeight = maxHeight
-          if (useMobileRatio) {
-            newWidth = Math.round(maxHeight * (9/16))
-          } else {
-            newWidth = Math.round(maxHeight * (16/9))
-          }
-        }
-        
+
         // Ensure we don't go below minimum size
         if (useMobileRatio) {
           if (newWidth < 300) {
-            newWidth = 300
-            newHeight = Math.round(300 * (16/9))  // 533
+            newWidth = 300;
+            newHeight = Math.round(300 * MOBILE_ASPECT_RATIO);
           }
         } else {
           if (newWidth < 640) {
-            newWidth = 640
-            newHeight = 360
+            newWidth = 640;
+            newHeight = Math.round(640 * (9 / 16));
           }
         }
-        
-        // Center window on screen
-        const x = Math.round(workArea.x + (workArea.width - newWidth) / 2)
-        const y = Math.round(workArea.y + (workArea.height - newHeight) / 2)
-        
-        // Update state before resize
-        state.scale = newScale
-        state.windowPosition = { x, y }
-        state.windowSize = { width: newWidth, height: newHeight }
-        
-        // Disable aspect ratio temporarily to prevent double-resizing
-        state.mainWindow!.setAspectRatio(0)
-        
-        // Update window in one atomic operation
-        await state.mainWindow!.setBounds({ x, y, width: newWidth, height: newHeight }, true)
-        
-        // Re-enable aspect ratio based on mode
-        state.mainWindow!.setAspectRatio(aspectRatio)
-        
-        // Forcefully reset webContents zoom factor to prevent content scaling
-        state.mainWindow!.webContents.setZoomFactor(1.0);
 
-        const ratioText = useMobileRatio ? "9:16 mobile" : "16:9 desktop"
-        console.log(`Window scaled to ${newScale}x: ${newWidth}x${newHeight} (${ratioText})`)
-        
+        // Center window on screen
+        const x = Math.round(workArea.x + (workArea.width - newWidth) / 2);
+        const y = Math.round(workArea.y + (workArea.height - newHeight) / 2);
+
+        // Update state before resize
+        state.scale = newScale;
+        state.windowPosition = { x, y };
+        state.windowSize = { width: newWidth, height: newHeight };
+
+        // Disable aspect ratio temporarily to prevent double-resizing
+        state.mainWindow.setAspectRatio(0);
+
+        // Update window in one atomic operation
+        await state.mainWindow.setBounds({ x, y, width: newWidth, height: newHeight }, true);
+
+        // Re-enable aspect ratio based on mode
+        state.mainWindow.setAspectRatio(aspectRatio);
+
+        // Forcefully reset webContents zoom factor to prevent content scaling
+        state.mainWindow.webContents.setZoomFactor(1.0);
+
+        const ratioText = useMobileRatio ? "9:16 mobile" : "16:9 desktop";
+        console.log(`Window scaled to ${newScale}x: ${newWidth}x${newHeight} (${ratioText})`);
+
         // Send aspect ratio info to renderer for layout changes
-        state.mainWindow!.webContents.send('window-aspect-changed', { 
+        state.mainWindow.webContents.send('window-aspect-changed', { 
           isMobile: useMobileRatio, 
           width: newWidth, 
           height: newHeight 
-        })
+        });
+
+        // Send feedback about reaching scale limits
+        if (newScale === minScale) {
+          state.mainWindow.webContents.send('scale-feedback', { 
+            message: "Already at minimum scale", 
+            scale: newScale 
+          });
+        } else if (newScale === maxScale) {
+          state.mainWindow.webContents.send('scale-feedback', { 
+            message: "Already at maximum scale", 
+            scale: newScale 
+          });
+        }
+      } catch (error) {
+        console.error("Error during window scaling:", error);
       } finally {
-        resizeController.endZoom()
+        resizeController.endZoom();
       }
     }
-  }),
+  });
 
   // Add more detailed logging for window events
   state.mainWindow.webContents.on("did-finish-load", () => {
@@ -597,11 +601,19 @@ function showMainWindow(): void {
 
 function toggleMainWindow(): void {
   console.log(`Toggling window. Current state: ${state.isWindowVisible ? 'visible' : 'hidden'}`);
+  
+  state.isTogglingVisibility = true; // Block dimension updates during toggle
+  
   if (state.isWindowVisible) {
     hideMainWindow();
   } else {
     showMainWindow();
   }
+  
+  // Reset flag after a short delay to allow the toggle operation to complete
+  setTimeout(() => {
+    state.isTogglingVisibility = false;
+  }, 1000); // 1 second should be enough for show/hide to complete
 }
 
 // Window movement functions
@@ -659,34 +671,61 @@ function moveWindowVertical(updateFn: (y: number) => number): void {
 
 // Window dimension functions
 function setWindowDimensions(width: number, height: number): void {
-  if (!state.mainWindow?.isDestroyed()) {
-    const [currentX, currentY] = state.mainWindow.getPosition()
-    const primaryDisplay = screen.getPrimaryDisplay()
-    const workArea = primaryDisplay.workAreaSize
-    const maxWidth = Math.floor(workArea.width * 0.5)
+  if (!state.mainWindow?.isDestroyed() && !state.isZooming && !state.isTogglingVisibility) {
+    // If user has manually scaled, preserve those dimensions and ignore content-based resizing
+    if (state.isManuallyScaled) {
+      console.log('Skipping content-based resize - window is manually scaled');
+      return;
+    }
+
+    const [currentX, currentY] = state.mainWindow.getPosition();
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const workArea = primaryDisplay.workAreaSize;
+    const maxWidth = Math.floor(workArea.width * 0.5);
 
     // Add padding to ensure all content is visible
-    const contentWidth = Math.min(width + 32, maxWidth)
-    const contentHeight = Math.ceil(height + 16) // Add extra padding for height
+    const contentWidth = Math.min(width + 32, maxWidth);
+    const contentHeight = Math.ceil(height + 16); // Add extra padding for height
+
+    // Only resize if dimensions actually changed significantly (avoid micro-adjustments)
+    const currentBounds = state.mainWindow.getBounds();
+    const widthDiff = Math.abs(currentBounds.width - contentWidth);
+    const heightDiff = Math.abs(currentBounds.height - contentHeight);
+
+    if (widthDiff < 20 && heightDiff < 20) { // Keep the increased threshold
+      return;
+    }
+
+    // Check if we're in a resize loop (same dimensions called repeatedly)
+    const now = Date.now();
+    if (state.lastResizeCall && now - state.lastResizeCall < 500) { // Keep the increased debounce
+      console.log('Preventing resize loop - too frequent calls');
+      return;
+    }
+    state.lastResizeCall = now;
 
     // Only resize, don't change position - preserve current position
-    state.mainWindow.setSize(contentWidth, contentHeight)
+    state.mainWindow.setSize(contentWidth, contentHeight);
 
     // Update the window size in state
     state.windowSize = {
       width: contentWidth,
       height: contentHeight
-    }
+    };
 
     // Update state with current position to keep tracking accurate
-    state.currentX = currentX
-    state.currentY = currentY
+    state.currentX = currentX;
+    state.currentY = currentY;
 
     // Update screen dimensions for movement bounds
-    state.screenWidth = workArea.width
-    state.screenHeight = workArea.height
+    state.screenWidth = workArea.width;
+    state.screenHeight = workArea.height;
 
-    console.log(`Window dimensions updated: ${contentWidth}x${contentHeight} at (${currentX}, ${currentY})`)
+    console.log(`Window dimensions updated: ${contentWidth}x${contentHeight} at (${currentX}, ${currentY})`);
+  } else if (state.isZooming) {
+    console.log('Skipping setWindowDimensions during scaling operation');
+  } else if (state.isTogglingVisibility) {
+    console.log('Skipping setWindowDimensions during visibility toggle');
   }
 }
 
@@ -697,7 +736,7 @@ function preventUnwantedResize(window: BrowserWindow) {
 
   window.on('resize', (e: Event) => {
     if (isZooming) return;
-    
+
     const bounds = window.getBounds();
     if (bounds.width !== lastBounds.width || bounds.height !== lastBounds.height) {
       e.preventDefault();
@@ -713,6 +752,7 @@ function preventUnwantedResize(window: BrowserWindow) {
     }
   };
 }
+
 
 // Environment setup
 function loadEnvVariables() {
@@ -938,67 +978,85 @@ app.whenReady().then(initializeApp)
 
 // Window scaling function
 function scaleWindow(direction: "up" | "down" | "reset"): void {
-  if (!state.mainWindow || state.isZooming) return
+  if (!state.mainWindow || state.isZooming) return;
 
-  state.isZooming = true
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const workArea: Electron.Rectangle = primaryDisplay.workArea; // Explicitly type as Electron.Rectangle
 
-  const primaryDisplay = screen.getPrimaryDisplay()
-  const workArea = primaryDisplay.workAreaSize
-  
-  let newScale = state.scale
-  
+  let targetScale = state.scale;
+
   switch (direction) {
     case "up":
-      newScale = Math.min(state.scale + 0.1, 2.0) // Max 2x scale
-      break
+      if (state.scale >= 1.0) {
+        // If already at max scale, show visual feedback
+        state.mainWindow.webContents.send('scale-feedback', { 
+          message: "Already at maximum scale", 
+          scale: 1.0 
+        });
+        return;
+      }
+      targetScale = Math.min(state.scale + 0.1, 1.0);
+      break;
     case "down":
-      newScale = Math.max(state.scale - 0.1, 0.3) // Min 0.3x scale
-      break
+      targetScale = Math.max(state.scale - 0.1, 0.6);
+      break;
     case "reset":
-      newScale = 1.0
-      break
+      targetScale = 1.0;
+      break;
   }
 
-  // Only update if scale actually changed
-  if (newScale !== state.scale) {
-    state.scale = newScale
-    
-    // Calculate new dimensions based on scale
-    const newWidth = Math.round(state.originalWidth * state.scale)
-    const newHeight = Math.round(state.originalHeight * state.scale)
-    
-    // Ensure dimensions fit within screen bounds
-    const maxWidth = Math.min(newWidth, workArea.width * 0.9)
-    const maxHeight = Math.min(newHeight, workArea.height * 0.9)
-    
-    // Get current position and calculate new centered position
-    const [currentX, currentY] = state.mainWindow.getPosition()
-    const currentBounds = state.mainWindow.getBounds()
-    
-    // Calculate offset to keep window centered relative to its current position
-    const deltaWidth = maxWidth - currentBounds.width
-    const deltaHeight = maxHeight - currentBounds.height
-    const newX = Math.round(currentX - deltaWidth / 2)
-    const newY = Math.round(currentY - deltaHeight / 2)
-    
-    // Update bounds
-    state.mainWindow.setBounds({
-      x: newX,
-      y: newY,
-      width: maxWidth,
-      height: maxHeight
-    })
-    
-    // Update state
-    state.windowSize = { width: maxWidth, height: maxHeight }
-    state.currentX = newX
-    state.currentY = newY
-    
-    console.log(`Window scaled to ${state.scale}x (${maxWidth}x${maxHeight})`)
+  // Determine if mobile ratio should be used
+  const useMobileRatio = targetScale <= MOBILE_RATIO_THRESHOLD;
+  const aspectRatio = useMobileRatio ? MOBILE_ASPECT_RATIO : DESKTOP_ASPECT_RATIO;
+
+  let targetWidth, targetHeight;
+
+  if (useMobileRatio) {
+    // Calculate mobile dimensions (9:16 ratio)
+    targetWidth = Math.round(BASE_MOBILE_WIDTH * targetScale);
+    targetHeight = Math.round(targetWidth * MOBILE_ASPECT_RATIO);
+  } else {
+    // Calculate desktop dimensions (16:9 ratio)
+    targetWidth = Math.round(BASE_WIDTH * targetScale);
+    targetHeight = Math.round(BASE_HEIGHT * targetScale);
   }
 
-  // Reset zoom flag after a short delay
-  setTimeout(() => {
-    state.isZooming = false
-  }, 100)
+  // Apply display constraints
+  const maxWidth = Math.min(targetWidth, Math.floor(workArea.width * 0.9));
+  const maxHeight = Math.min(targetHeight, Math.floor(workArea.height * 0.9));
+
+  // Calculate actual scale based on constraints
+  const actualScaleX = maxWidth / (useMobileRatio ? BASE_MOBILE_WIDTH : BASE_WIDTH);
+  const actualScaleY = maxHeight / (useMobileRatio ? (BASE_MOBILE_WIDTH * MOBILE_ASPECT_RATIO) : BASE_HEIGHT);
+  const actualScale = Math.min(actualScaleX, actualScaleY);
+
+  // Update dimensions with actual scale
+  let finalWidth, finalHeight;
+  if (useMobileRatio) {
+    finalWidth = Math.round(BASE_MOBILE_WIDTH * actualScale);
+    finalHeight = Math.round(finalWidth * MOBILE_ASPECT_RATIO);
+  } else {
+    finalWidth = Math.round(BASE_WIDTH * actualScale);
+    finalHeight = Math.round(BASE_HEIGHT * actualScale);
+  }
+
+  // Update window position to maintain centering
+  const newX = Math.round(workArea.x + (workArea.width - finalWidth) / 2);
+  const newY = Math.round(workArea.y + (workArea.height - finalHeight) / 2);
+
+  // Update window bounds
+  state.mainWindow.setBounds({
+    x: newX,
+    y: newY,
+    width: finalWidth,
+    height: finalHeight
+  });
+
+  // Update state and send feedback
+  state.scale = actualScale;
+  state.mainWindow.webContents.send('scale-feedback', { 
+    message: `Scaled to ${actualScale.toFixed(1)}x: ${finalWidth}x${finalHeight} (${useMobileRatio ? '9:16 mobile' : '16:9 desktop'})`, 
+    scale: actualScale,
+    isMobile: useMobileRatio
+  });
 }
