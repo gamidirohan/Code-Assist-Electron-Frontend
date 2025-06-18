@@ -79,6 +79,8 @@ function App() {
   useEffect(() => {
     const handleScaleWindow = (data: { direction: "up" | "down" | "reset" }) => {
       console.log('Scale window event received:', data.direction)
+      // Mark that a scale operation just happened
+      ;(window as any).__lastScaleTime = Date.now()
       // The actual scaling is handled by the main process
       // This is just for any UI feedback we might want to add
     }
@@ -90,25 +92,85 @@ function App() {
     }
   }, [])
 
-  // Dynamic window sizing with constraints
+  // Dynamic window sizing with constraints (but respect manual scaling and focus state)
   useEffect(() => {
     if (!containerRef.current) return
 
+    let resizeObserver: ResizeObserver | null = null
+    let isWindowFocused = true // Track focus state
+
     const updateDimensions = () => {
-      if (!containerRef.current) return
+      if (!containerRef.current || !isWindowFocused) return // Only update when focused
+      
+      // Check if we're in manual scaling mode - if so, don't override
+      // We can detect this by checking if a scale operation happened recently
+      const now = Date.now()
+      const lastScaleTime = (window as any).__lastScaleTime || 0
+      const isRecentlyScaled = (now - lastScaleTime) < 2000 // 2 seconds
+      
+      if (isRecentlyScaled) {
+        console.log('Skipping dimension update - recent manual scaling detected')
+        return
+      }
+      
       const height = Math.min(containerRef.current.scrollHeight, 1000) // Cap at 1000px
       const width = Math.min(containerRef.current.scrollWidth, 1400)   // Cap at 1400px
       window.electronAPI?.updateContentDimensions({ width, height })
     }
 
-    const resizeObserver = new ResizeObserver(updateDimensions)
-    resizeObserver.observe(containerRef.current)
+    const enableResizeObserver = () => {
+      if (!containerRef.current || resizeObserver) return
+      
+      resizeObserver = new ResizeObserver(() => {
+        // Debounce the dimension updates
+        clearTimeout((window as any).__dimensionUpdateTimeout)
+        ;(window as any).__dimensionUpdateTimeout = setTimeout(updateDimensions, 100)
+      })
+      
+      resizeObserver.observe(containerRef.current)
+      console.log('ResizeObserver enabled')
+    }
 
-    // Initial dimension update
-    updateDimensions()
+    const disableResizeObserver = () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+        resizeObserver = null
+        clearTimeout((window as any).__dimensionUpdateTimeout)
+        console.log('ResizeObserver disabled')
+      }
+    }
+
+    // Focus/blur event handlers
+    const handleFocus = () => {
+      isWindowFocused = true
+      enableResizeObserver()
+    }
+
+    const handleBlur = () => {
+      isWindowFocused = false
+      disableResizeObserver()
+    }
+
+    // Listen to window focus/blur events
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('blur', handleBlur)
+
+    // Initialize based on current focus state
+    if (document.hasFocus()) {
+      enableResizeObserver()
+    } else {
+      isWindowFocused = false
+    }
+
+    // Initial dimension update (but only if focused)
+    if (isWindowFocused) {
+      setTimeout(updateDimensions, 500)
+    }
 
     return () => {
-      resizeObserver.disconnect()
+      disableResizeObserver()
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('blur', handleBlur)
     }
   }, [])
 
