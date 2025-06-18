@@ -20,6 +20,8 @@ interface ElectronAPI {
   onScreenshotTaken: (
     callback: (data: { path: string; preview: string }) => void
   ) => () => void
+  onClearQueue: (callback: () => void) => () => void
+  processScreenshots: () => Promise<{ success: boolean; error?: string }>
   onResetView: (callback: () => void) => () => void
   onSolutionStart: (callback: () => void) => () => void
   onDebugStart: (callback: () => void) => () => void
@@ -106,6 +108,14 @@ const electronAPI = {
       ipcRenderer.removeListener("screenshot-taken", subscription)
     }
   },
+  onClearQueue: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on("clear-queue", subscription)
+    return () => {
+      ipcRenderer.removeListener("clear-queue", subscription)
+    }
+  },
+  processScreenshots: () => ipcRenderer.invoke("process-screenshots"),
   onResetView: (callback: () => void) => {
     const subscription = () => callback()
     ipcRenderer.on("reset-view", subscription)

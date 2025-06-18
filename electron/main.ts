@@ -913,6 +913,11 @@ function clearQueues(): void {
   state.screenshotHelper?.clearQueues()
   state.problemInfo = null
   setView("queue")
+  
+  // Notify renderer to clear the screenshot queue UI
+  if (state.mainWindow) {
+    state.mainWindow.webContents.send("clear-queue")
+  }
 }
 
 async function takeScreenshot(): Promise<string> {

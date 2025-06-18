@@ -184,7 +184,7 @@ export class ScreenshotHelper {
   public async getImagePreview(filepath: string): Promise<string> {
     try {
       const data = await fs.promises.readFile(filepath)
-      return `data:image/png;base64,${data.toString("base64")}`
+      return data.toString("base64")
     } catch (error) {
       console.error("Error reading image:", error)
       throw error

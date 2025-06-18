@@ -19,6 +19,8 @@ export interface ElectronAPI {
   onScreenshotTaken: (
     callback: (data: { path: string; preview: string }) => void
   ) => () => void
+  onClearQueue: (callback: () => void) => () => void
+  processScreenshots: () => Promise<{ success: boolean; error?: string }>
   onResetView: (callback: () => void) => () => void
   onSolutionStart: (callback: () => void) => () => void
   onDebugStart: (callback: () => void) => () => void
