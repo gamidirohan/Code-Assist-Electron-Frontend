@@ -26,6 +26,21 @@ export class ShortcutsHelper {
     }
   }
 
+  private setFullOpacity(): void {
+    const mainWindow = this.deps.getMainWindow();
+    if (!mainWindow) return;
+    
+    const currentOpacity = mainWindow.getOpacity();
+    console.log(`Setting full opacity from ${currentOpacity} to 1.0`);
+    
+    mainWindow.setOpacity(1.0);
+
+    // Ensure the window is visible and interaction is enabled
+    if (!this.deps.isVisible()) {
+      this.deps.toggleMainWindow();
+    }
+  }
+
   private lastScaleDirection: "up" | "down" | "reset" | null = null;
 
   private debouncedScale(direction: "up" | "down" | "reset"): void {
@@ -134,8 +149,8 @@ export class ShortcutsHelper {
     })
 
     globalShortcut.register("CommandOrControl+]", () => {
-      console.log("Command/Ctrl + ] pressed. Increasing opacity.")
-      this.adjustOpacity(0.1)
+      console.log("Command/Ctrl + ] pressed. Setting to full opacity.")
+      this.setFullOpacity()
     })
     
     // Scale controls (resize the entire window, not zoom content)

@@ -38,6 +38,10 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     }
   )
 
+  ipcMain.handle("ensure-window-visible", async () => {
+    deps.ensureWindowVisible()
+  })
+
   ipcMain.handle(
     "set-window-dimensions",
     (event, width: number, height: number) => {

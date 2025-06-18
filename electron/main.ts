@@ -102,6 +102,7 @@ export interface IShortcutsHelperDeps {
 export interface IIpcHandlerDeps {
   getMainWindow: () => BrowserWindow | null
   setWindowDimensions: (width: number, height: number) => void
+  ensureWindowVisible: () => void
   scaleWindow: (direction: "up" | "down" | "reset") => void
   getScreenshotQueue: () => string[]
   getExtraScreenshotQueue: () => string[]
@@ -517,9 +518,19 @@ async function createWindow(): Promise<void> {
 
   // Always make sure window is shown first
   state.mainWindow.showInactive(); // Use showInactive for consistency
+  
+  // Check if we should hide the window initially (this logic seems to be missing the condition)
+  const shouldHideInitially = false; // Changed from always hiding to never hiding initially
+  
+  if (shouldHideInitially) {
     console.log('Initial opacity too low, setting to 0 and hiding window');
     state.mainWindow.setOpacity(0);
     state.isWindowVisible = false;
+  } else {
+    // Ensure window is fully visible
+    state.mainWindow.setOpacity(1);
+    console.log('Window shown with full opacity');
+  }
 }
 
 function handleWindowMove(): void {
@@ -729,6 +740,27 @@ function setWindowDimensions(width: number, height: number): void {
   }
 }
 
+// Function to ensure window is fully visible and opaque
+function ensureWindowVisible(): void {
+  if (!state.mainWindow?.isDestroyed()) {
+    console.log('[DEBUG] Ensuring window is fully visible')
+    
+    // Set opacity to 1 to ensure visibility
+    state.mainWindow.setOpacity(1)
+    
+    // Make sure the window is not hidden
+    if (!state.isWindowVisible) {
+      state.mainWindow.showInactive()
+      state.isWindowVisible = true
+    }
+    
+    // Ensure mouse events are not ignored
+    state.mainWindow.setIgnoreMouseEvents(false)
+    
+    console.log('[DEBUG] Window visibility ensured - opacity: 1, visible:', state.isWindowVisible)
+  }
+}
+
 // Function to block unwanted resize events
 function preventUnwantedResize(window: BrowserWindow) {
   let isZooming = false;
@@ -796,6 +828,7 @@ async function initializeApp() {
     initializeIpcHandlers({
       getMainWindow,
       setWindowDimensions,
+      ensureWindowVisible,
       scaleWindow,
       getScreenshotQueue,
       getExtraScreenshotQueue,

@@ -97,6 +97,7 @@ const electronAPI = {
       throw error
     }
   },
+  ensureWindowVisible: () => ipcRenderer.invoke("ensure-window-visible"),
   // Event listeners
   onScreenshotTaken: (
     callback: (data: { path: string; preview: string }) => void

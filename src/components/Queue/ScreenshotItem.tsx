@@ -1,11 +1,7 @@
 // src/components/ScreenshotItem.tsx
 import React from "react"
 import { X } from "lucide-react"
-
-interface Screenshot {
-  path: string
-  preview: string
-}
+import { Screenshot } from "../../types/screenshots.ts"
 
 interface ScreenshotItemProps {
   screenshot: Screenshot
@@ -38,7 +34,7 @@ const ScreenshotItem: React.FC<ScreenshotItemProps> = ({
             </div>
           )}
           <img
-            src={screenshot.preview}
+            src={`data:image/png;base64,${screenshot.preview}`}
             alt="Screenshot"
             className={`w-full h-full object-cover transition-transform duration-300 ${
               isLoading

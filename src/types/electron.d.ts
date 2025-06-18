@@ -7,6 +7,7 @@ export interface ElectronAPI {
     width: number
     height: number
   }) => Promise<void>
+  ensureWindowVisible: () => Promise<void>
   clearStore: () => Promise<{ success: boolean; error?: string }>
   getScreenshots: () => Promise<{
     success: boolean

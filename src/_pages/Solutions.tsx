@@ -1,0 +1,858 @@
+// Solutions.tsx
+import React, { useState, useEffect, useRef } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
+import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
+
+import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
+
+import { ProblemStatementData } from "../types/solutions"
+import { Screenshot } from "../types/screenshots.ts"
+import SolutionCommands from "../components/Solutions/SolutionCommands"
+import Debug from "./Debug"
+import { useToast } from "../contexts/toast"
+import { COMMAND_KEY } from "../utils/platform"
+import { CopyButton } from "../components/ui/copy-button"
+
+export const ContentSection = ({
+  title,
+  content,
+  isLoading
+}: {
+  title: string
+  content: React.ReactNode
+  isLoading: boolean
+}) => (
+  <div className="space-y-2">
+    <h2 className="text-[13px] font-medium text-white tracking-wide">
+      {title}
+    </h2>
+    {isLoading ? (
+      <div className="mt-4 flex">
+        <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+          Extracting problem statement...
+        </p>
+      </div>
+    ) : (
+      <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px] scrollable">
+        {content}
+      </div>
+    )}
+  </div>
+)
+const SolutionSection = ({
+  title,
+  content,
+  isLoading,
+  currentLanguage
+}: {
+  title: string
+  content: React.ReactNode
+  isLoading: boolean
+  currentLanguage: string
+}) => (
+  <div className="space-y-2">
+    <h2 className="text-[13px] font-medium text-white tracking-wide">
+      {title}
+    </h2>
+    {isLoading ? (
+      <div className="space-y-1.5">
+        <div className="mt-4 flex">
+          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+            Loading solutions...
+          </p>
+        </div>
+      </div>
+    ) : (
+      <div className="w-full scrollable relative">
+        <CopyButton text={content as string} />
+        <SyntaxHighlighter
+          showLineNumbers
+          language={currentLanguage == "golang" ? "go" : currentLanguage}
+          style={dracula}
+          customStyle={{
+            maxWidth: "100%",
+            margin: 0,
+            padding: "1rem",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-all",
+            backgroundColor: "rgba(22, 27, 34, 0.5)"
+          }}
+          wrapLongLines={true}
+        >
+          {content as string}
+        </SyntaxHighlighter>
+      </div>
+    )}
+  </div>
+)
+
+export const ComplexitySection = ({
+  timeComplexity,
+  spaceComplexity,
+  timeComplexityExplanation,
+  spaceComplexityExplanation,
+  isLoading,
+}: {
+  timeComplexity: string | null;
+  spaceComplexity: string | null;
+  timeComplexityExplanation?: string | null;
+  spaceComplexityExplanation?: string | null;
+  isLoading: boolean;
+}) => (
+  <div className="space-y-2">
+    <h2 className="text-[13px] font-medium text-white tracking-wide">
+      Complexity
+    </h2>
+    {isLoading ? (
+      <div className="space-y-1.5">
+        <div className="mt-4 flex">
+          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+            Loading complexity analysis...
+          </p>
+        </div>
+      </div>
+    ) : (
+      <div className="flex flex-col space-y-3 bg-black/30 rounded-md p-3 scrollable">
+        <div className="flex flex-col">
+          <div className="text-[13px] leading-[1.4] text-white/90">
+            <span className="font-semibold">Time:</span> {timeComplexity}
+          </div>
+          {timeComplexityExplanation && (
+            <div className="text-[12px] leading-[1.4] mt-1 text-white/70">
+              {timeComplexityExplanation}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col">
+          <div className="text-[13px] leading-[1.4] text-white/90">
+            <span className="font-semibold">Space:</span> {spaceComplexity}
+          </div>
+          {spaceComplexityExplanation && (
+            <div className="text-[12px] leading-[1.4] mt-1 text-white/70">
+              {spaceComplexityExplanation}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+export interface SolutionsProps {
+  setView: (view: "queue" | "solutions" | "debug") => void
+  credits: number
+  currentLanguage: string
+  setLanguage: (language: string) => void
+}
+const Solutions: React.FC<SolutionsProps> = ({
+  setView,
+  credits,
+  currentLanguage,
+  setLanguage
+}) => {
+  const queryClient = useQueryClient()
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  const [debugProcessing, setDebugProcessing] = useState(false)
+  const [problemStatementData, setProblemStatementData] =
+    useState<ProblemStatementData | null>(null)
+  const [solutionData, setSolutionData] = useState<string | null>(null)
+  const [thoughtsData, setThoughtsData] = useState<string | null>(null)
+  const [timeComplexityData, setTimeComplexityData] = useState<string | null>(
+    null
+  )
+  const [spaceComplexityData, setSpaceComplexityData] = useState<string | null>(
+    null
+  )
+  const [timeComplexityExplanation, setTimeComplexityExplanation] = useState<string | null>(null)
+  const [spaceComplexityExplanation, setSpaceComplexityExplanation] = useState<string | null>(null)
+  const [isTooltipVisible, setIsTooltipVisible] = useState(false)
+  const [tooltipHeight, setTooltipHeight] = useState(0)
+
+  const [isResetting, setIsResetting] = useState(false)
+
+  const [extraScreenshots, setExtraScreenshots] = useState<Screenshot[]>([])
+
+  useEffect(() => {
+    const fetchScreenshots = async () => {
+      try {
+        const existing = await window.electronAPI.getScreenshots()
+        console.log("Raw screenshot data:", existing)
+        const screenshots = (Array.isArray(existing) ? existing : []).map(
+          (p) => ({
+            id: p.path,
+            path: p.path,
+            preview: p.preview,
+            timestamp: Date.now()
+          })
+        )
+        console.log("Processed screenshots:", screenshots)
+        setExtraScreenshots(screenshots)
+      } catch (error) {
+        console.error("Error loading extra screenshots:", error)
+        setExtraScreenshots([])
+      }
+    }
+
+    fetchScreenshots()
+  }, [solutionData])
+
+  const { showToast } = useToast()
+
+  useEffect(() => {
+    // Height update logic
+    const updateDimensions = () => {
+      if (contentRef.current) {
+        // Get the actual content dimensions
+        let contentHeight = contentRef.current.scrollHeight
+        const contentWidth = contentRef.current.scrollWidth
+
+        // Add tooltip height if visible
+        if (isTooltipVisible) {
+          contentHeight += tooltipHeight
+        }
+
+        // Add some extra padding to ensure all content is visible
+        contentHeight += 20
+
+        console.log(`Updating content dimensions: ${contentWidth}x${contentHeight}`)
+
+        // Send dimensions to main process
+        window.electronAPI.updateContentDimensions({
+          width: contentWidth,
+          height: contentHeight
+        })
+      }
+    }
+
+    // Initialize resize observer
+    const resizeObserver = new ResizeObserver(() => {
+      // Use setTimeout to ensure we get the final size after all DOM updates
+      setTimeout(updateDimensions, 0)
+    })
+
+    if (contentRef.current) {
+      resizeObserver.observe(contentRef.current)
+    }
+
+    // Initial update
+    updateDimensions()
+
+    // Set up event listeners
+    const cleanupFunctions = [
+      window.electronAPI.onScreenshotTaken(async () => {
+        try {
+          const existing = await window.electronAPI.getScreenshots()
+          const screenshots = (Array.isArray(existing) ? existing : []).map(
+            (p) => ({
+              id: p.path,
+              path: p.path,
+              preview: p.preview,
+              timestamp: Date.now()
+            })
+          )
+          setExtraScreenshots(screenshots)
+        } catch (error) {
+          console.error("Error loading extra screenshots:", error)
+        }
+      }),
+      window.electronAPI.onResetView(() => {
+        // Set resetting state first
+        setIsResetting(true)
+
+        // Remove queries
+        queryClient.removeQueries({
+          queryKey: ["solution"]
+        })
+        queryClient.removeQueries({
+          queryKey: ["new_solution"]
+        })
+
+        // Reset screenshots
+        setExtraScreenshots([])
+
+        // After a small delay, clear the resetting state
+        setTimeout(() => {
+          setIsResetting(false)
+        }, 0)
+      }),
+      window.electronAPI.onSolutionStart(() => {
+        // Every time processing starts, reset relevant states
+        setSolutionData(null)
+        setThoughtsData(null)
+        setTimeComplexityData(null)
+        setSpaceComplexityData(null)
+      }),
+      window.electronAPI.onProblemExtracted((data) => {
+        queryClient.setQueryData(["problem_statement"], data)
+      }),
+      //if there was an error processing the initial solution
+      window.electronAPI.onSolutionError((error: string) => {
+        showToast("Processing Failed", error, "error")
+        // Reset solutions in the cache (even though this shouldn't ever happen) and complexities to previous states
+        const solution = queryClient.getQueryData(["solution"]) as {
+          code: string
+          thoughts: string
+          time_complexity: string
+          space_complexity: string
+        } | null
+        if (!solution) {
+          setView("queue")
+        }
+        setSolutionData(solution?.code || null)
+        setThoughtsData(solution?.thoughts || null)
+        setTimeComplexityData(solution?.time_complexity || null)
+        setSpaceComplexityData(solution?.space_complexity || null)
+        console.error("Processing error:", error)
+      }),
+
+
+
+
+      //when the initial solution is generated, we'll set the solution data to that
+      window.electronAPI.onSolutionSuccess((data) => {
+        if (!data) {
+          console.warn("Received empty or invalid solution data")
+          return
+        }
+        console.log("Raw solution data:", data)
+
+        // 1. Parse the JSON string from data.code
+        let rawSolutionData;
+        try {
+          rawSolutionData = JSON.parse(data.code); // Parse the JSON string
+        } catch (e) {
+          console.error("Failed to parse JSON solution data:", e);
+          console.warn("Using raw data.code as is because JSON parsing failed.");
+          rawSolutionData = data.code; // If parsing fails, use the raw string (less ideal, but prevents crashing)
+        }
+
+
+        // Helper function to format JSON strings or extract content from markdown code blocks
+        interface ParsedField {
+          Code?: string
+          Explanation?: string
+          "Time Complexity"?: string
+          "Space Complexity"?: string
+          complexity_explanation?: string
+          [key: string]: any
+        }
+
+        const formatField = (field: unknown): string | null | unknown => {
+          if (!field) return null
+
+          // If it's a string that looks like JSON, try to parse it
+          if (
+            typeof field === "string" &&
+            (field.trim().startsWith("{") || field.trim().startsWith("["))
+          ) {
+            try {
+              const parsed = JSON.parse(field) as ParsedField
+
+              // Handle JSON object with code/explanation properties
+              if (parsed.Code) {
+                return parsed.Code.replace(/```python\n/g, "")
+                  .replace(/```\n?/g, "")
+                  .trim()
+              } else if (parsed.Explanation) {
+                return parsed.Explanation
+              } else if (parsed["Time Complexity"]) {
+                return parsed["Time Complexity"]
+              } else if (parsed["Space Complexity"]) {
+                return parsed["Space Complexity"]
+              } else if (parsed.complexity_explanation) {
+                return parsed.complexity_explanation
+              } else if (typeof parsed === "object") {
+                // For other objects, stringify but with formatting
+                return JSON.stringify(parsed, null, 2)
+              }
+
+              // If it's a primitive value, return as is
+              return parsed
+            } catch (e) {
+              console.log("Not a valid JSON string, using as is")
+            }
+          }
+
+          // If it's a string with markdown code blocks, clean them up
+          if (typeof field === "string" && field.includes("```")) {
+            return field.replace(/```python\n/g, "")
+              .replace(/```\n?/g, "")
+              .trim()
+          }
+
+          // Return the original field if no formatting was applied
+          return field
+        }
+
+
+        // Initialize variables to hold formatted data, using rawSolutionData now
+        let formattedCode;
+        let formattedThoughts;
+        let formattedTimeComplexity;
+        let formattedSpaceComplexity;
+        let formattedTimeComplexityExplanation = null;
+        let formattedSpaceComplexityExplanation = null;
+
+
+        if (typeof rawSolutionData === 'object' && rawSolutionData !== null) {
+          // 2. & 3. Extract and format fields from the parsed JSON object
+          formattedCode = formatField(rawSolutionData.Code);
+          formattedThoughts = formatField(rawSolutionData.Explanation);
+          formattedTimeComplexity = formatField(rawSolutionData["Time Complexity"]);
+          formattedSpaceComplexity = formatField(rawSolutionData["Space Complexity"]);
+
+          // Process complexity explanation if exists
+          if (rawSolutionData.complexity_explanation) {
+            const complexityExplanation = formatField(rawSolutionData.complexity_explanation) as string;
+
+            // Try to split the explanation if it contains both time and space complexity info
+            if (complexityExplanation && typeof complexityExplanation === 'string') {
+              if (complexityExplanation.toLowerCase().includes('time') && complexityExplanation.toLowerCase().includes('space')) {
+                // Try to split by sentences or key phrases
+                const sentences = complexityExplanation.split('. ');
+                const timeExplanation = sentences.find(s => s.toLowerCase().includes('time'));
+                const spaceExplanation = sentences.find(s => s.toLowerCase().includes('space'));
+
+                formattedTimeComplexityExplanation = timeExplanation || complexityExplanation;
+                formattedSpaceComplexityExplanation = spaceExplanation || complexityExplanation;
+              } else {
+                // If we can't clearly separate them, use the full explanation for both
+                formattedTimeComplexityExplanation = complexityExplanation;
+                formattedSpaceComplexityExplanation = complexityExplanation;
+              }
+            }
+          }
+        } else {
+          // If rawSolutionData is not an object (e.g., JSON parsing failed or wasn't JSON in the first place),
+          // format the original data.code directly (as a fallback)
+          formattedCode = formatField(data.code);
+          formattedThoughts = null; // Or formatField(null) if you want formatField to handle nulls explicitly
+          formattedTimeComplexity = null;
+          formattedSpaceComplexity = null;
+        }
+
+
+        console.log("Formatted solution data:", {
+          code: formattedCode,
+          thoughts: formattedThoughts,
+          time_complexity: formattedTimeComplexity,
+          space_complexity: formattedSpaceComplexity,
+          time_complexity_explanation: formattedTimeComplexityExplanation,
+          space_complexity_explanation: formattedSpaceComplexityExplanation
+        });
+
+        // 4. Create the solution data object with formatted fields
+        const solutionData = {
+          code: formattedCode,
+          thoughts: formattedThoughts,
+          time_complexity: formattedTimeComplexity,
+          space_complexity: formattedSpaceComplexity,
+          time_complexity_explanation: formattedTimeComplexityExplanation,
+          space_complexity_explanation: formattedSpaceComplexityExplanation
+        };
+
+        console.log("State values being set:", {
+          solutionDataCode: typeof solutionData.code === "string" ? solutionData.code : null,
+          thoughtsData: typeof solutionData.thoughts === "string" ? solutionData.thoughts : null,
+          timeComplexityData: typeof solutionData.time_complexity === "string" ? solutionData.time_complexity : null,
+          spaceComplexityData: typeof solutionData.space_complexity === "string" ? solutionData.space_complexity : null
+        });
+
+        // 5. Update the query cache and state (rest of your original code is fine)
+        queryClient.setQueryData(["solution"], solutionData);
+        setSolutionData(typeof solutionData.code === "string" ? solutionData.code : null);
+        setThoughtsData(typeof solutionData.thoughts === "string" ? solutionData.thoughts : null);
+        setTimeComplexityData(typeof solutionData.time_complexity === "string" ? solutionData.time_complexity : null);
+        setSpaceComplexityData(typeof solutionData.space_complexity === "string" ? solutionData.space_complexity : null);
+        setTimeComplexityExplanation(solutionData.time_complexity_explanation);
+        setSpaceComplexityExplanation(solutionData.space_complexity_explanation);
+
+
+        // Fetch latest screenshots - keep this part as is
+        const fetchScreenshots = async () => {
+          try {
+            const existing = await window.electronAPI.getScreenshots();
+            const screenshots =
+              existing.previews?.map((p) => ({
+                id: p.path,
+                path: p.path,
+                preview: p.preview,
+                timestamp: Date.now()
+              })) || [];
+            setExtraScreenshots(screenshots);
+          } catch (error) {
+            console.error("Error loading extra screenshots:", error);
+            setExtraScreenshots([]);
+          }
+        };
+        fetchScreenshots();
+      }),
+
+      //########################################################
+      //DEBUG EVENTS
+      //########################################################
+      window.electronAPI.onDebugStart(() => {
+        //we'll set the debug processing state to true and use that to render a little loader
+        setDebugProcessing(true)
+      }),
+      //the first time debugging works, we'll set the view to debug and populate the cache with the data
+      window.electronAPI.onDebugSuccess((data) => {
+        queryClient.setQueryData(["new_solution"], data)
+        setDebugProcessing(false)
+      }),
+      //when there was an error in the initial debugging, we'll show a toast and stop the little generating pulsing thing.
+      window.electronAPI.onDebugError(() => {
+        showToast(
+          "Processing Failed",
+          "There was an error debugging your code.",
+          "error"
+        )
+        setDebugProcessing(false)
+      }),
+      window.electronAPI.onProcessingNoScreenshots(() => {
+        showToast(
+          "No Screenshots",
+          "There are no extra screenshots to process.",
+          "neutral"
+        )
+      }),
+      window.electronAPI.onOutOfCredits(() => {
+        showToast(
+          "Out of Credits",
+          "You are out of credits. Please refill at https://www.interviewcoder.co/settings.",
+          "error"
+        )
+      })
+    ]
+
+    // Set up mutation observer to detect DOM changes
+    const mutationObserver = new MutationObserver(() => {
+      setTimeout(updateDimensions, 0)
+    })
+
+    if (contentRef.current) {
+      mutationObserver.observe(contentRef.current, {
+        childList: true,
+        subtree: true,
+        attributes: true
+      })
+    }
+
+    return () => {
+      resizeObserver.disconnect()
+      mutationObserver.disconnect()
+      cleanupFunctions.forEach((cleanup) => cleanup())
+    }
+  }, [isTooltipVisible, tooltipHeight])
+
+  useEffect(() => {
+    setProblemStatementData(
+      queryClient.getQueryData(["problem_statement"]) || null
+    )
+    setSolutionData(queryClient.getQueryData(["solution"]) || null)
+
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event?.query.queryKey[0] === "problem_statement") {
+        setProblemStatementData(
+          queryClient.getQueryData(["problem_statement"]) || null
+        )
+      }
+      if (event?.query.queryKey[0] === "solution") {
+        const solution = queryClient.getQueryData(["solution"]) as {
+          code: string
+          thoughts: string
+          time_complexity: string
+          space_complexity: string
+        } | null
+
+        setSolutionData(solution?.code ?? null)
+        setThoughtsData(solution?.thoughts ?? null)
+        setTimeComplexityData(solution?.time_complexity ?? null)
+        setSpaceComplexityData(solution?.space_complexity ?? null)
+      }
+    })
+    return () => unsubscribe()
+  }, [queryClient])
+
+  const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
+    setIsTooltipVisible(visible)
+    setTooltipHeight(height)
+  }
+
+  const handleDeleteExtraScreenshot = async (index: number) => {
+    const screenshotToDelete = extraScreenshots[index]
+
+    try {
+      const response = await window.electronAPI.deleteScreenshot(
+        screenshotToDelete.path
+      )
+
+      if (response.success) {
+        // Fetch and update screenshots after successful deletion
+        const existing = await window.electronAPI.getScreenshots()
+        const screenshots = (Array.isArray(existing) ? existing : []).map(
+          (p) => ({
+            id: p.path,
+            path: p.path,
+            preview: p.preview,
+            timestamp: Date.now()
+          })
+        )
+        setExtraScreenshots(screenshots)
+      } else {
+        console.error("Failed to delete extra screenshot:", response.error)
+        showToast("Error", "Failed to delete the screenshot", "error")
+      }
+    } catch (error) {
+      console.error("Error deleting extra screenshot:", error)
+      showToast("Error", "Failed to delete the screenshot", "error")
+    }
+  }
+
+  return (
+    <>
+      {!isResetting && queryClient.getQueryData(["new_solution"]) ? (
+        <Debug
+          isProcessing={debugProcessing}
+          setIsProcessing={setDebugProcessing}
+          currentLanguage={currentLanguage}
+          setLanguage={setLanguage}
+        />
+      ) : (
+        <div ref={contentRef} className="relative space-y-3 px-4 py-3">
+          {/* Conditionally render the screenshot queue if solutionData is available */}
+          {solutionData && (
+            <div className="bg-transparent w-fit">
+              <div className="pb-3">
+                <div className="space-y-3 w-fit">
+                  <ScreenshotQueue
+                    isLoading={debugProcessing}
+                    screenshots={extraScreenshots}
+                    onDeleteScreenshot={handleDeleteExtraScreenshot}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navbar of commands with the SolutionsHelper */}
+          <SolutionCommands
+            onTooltipVisibilityChange={handleTooltipVisibilityChange}
+            isProcessing={!problemStatementData || !solutionData}
+            extraScreenshots={extraScreenshots}
+            credits={credits}
+            currentLanguage={currentLanguage}
+            setLanguage={setLanguage}
+          />          {/* Main Content - Chat Interface */}
+          <div className="w-full text-sm text-black">
+            <div className="rounded-lg overflow-hidden">
+              {/* Chat Messages Container */}
+              <div className="px-4 py-3 space-y-4 max-w-full scrollable bg-gradient-to-b from-gray-900/20 to-gray-800/20 backdrop-blur-sm border border-gray-700/30 rounded-xl">
+                {/* Chat Header */}
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-700/30">
+                  <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+                  <span className="text-xs text-gray-300">AI Assistant • Online</span>
+                </div>{!solutionData && (
+                  <>
+                    {/* AI Chat Response for Problem Statement */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+                        <span className="text-white text-sm font-medium">AI</span>
+                      </div>                        <div className="flex-1 max-w-[85%]">
+                          <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-2xl rounded-tl-sm p-4 border border-gray-700/50">
+                            <div className="text-[13px] font-medium text-indigo-400 mb-2">🔍 Understanding the Problem</div>
+                            {!problemStatementData ? (
+                              <div className="flex items-center gap-2">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                                  <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                                  <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                                </div>
+                                <div className="text-xs text-indigo-300 animate-pulse">
+                                  Reading the problem...
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="text-xs text-indigo-300 mb-2">Here's what I understand:</div>
+                                <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px] scrollable">
+                                  {problemStatementData?.problem_statement}
+                                </div>
+                              </>
+                            )}
+                        </div>
+                      </div>
+                    </div>
+                      {problemStatementData && (
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shrink-0">
+                          <span className="text-white text-sm font-medium">AI</span>
+                        </div>
+                        <div className="flex-1 max-w-[85%]">
+                          <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-2xl rounded-tl-sm p-4 border border-gray-700/50">
+                            <div className="flex items-center gap-2">
+                              <div className="flex gap-1">
+                                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                              </div>
+                              <div className="text-xs text-blue-300 animate-pulse">
+                                Working through this problem...
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}{solutionData && (
+                  <>
+                    {/* AI Chat Response Container */}
+                    <div className="space-y-4">
+                      {/* AI Avatar and Response Bubble for Thoughts */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0">
+                          <span className="text-white text-sm font-medium">AI</span>
+                        </div>                        <div className="flex-1 max-w-[85%]">
+                          <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-2xl rounded-tl-sm p-4 border border-gray-700/50">
+                            <div className="text-[13px] font-medium text-blue-400 mb-2">💭 My Analysis</div>
+                            {!thoughtsData ? (
+                              <div className="flex items-center gap-2">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                                </div>
+                                <div className="text-xs text-blue-300 animate-pulse">
+                                  Analyzing the problem...
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-[13px] leading-[1.4] text-gray-100">
+                                {thoughtsData}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* AI Avatar and Response Bubble for Solution */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shrink-0">
+                          <span className="text-white text-sm font-medium">AI</span>
+                        </div>                        <div className="flex-1 max-w-[85%]">
+                          <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-2xl rounded-tl-sm p-4 border border-gray-700/50">
+                            <div className="text-[13px] font-medium text-green-400 mb-2">✨ Here's my solution</div>
+                            {!solutionData ? (
+                              <div className="flex items-center gap-2">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                                  <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                                  <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                                </div>
+                                <div className="text-xs text-green-300 animate-pulse">
+                                  Crafting the perfect solution...
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-full scrollable relative">
+                                <CopyButton text={solutionData as string} />
+                                <SyntaxHighlighter
+                                  showLineNumbers
+                                  language={currentLanguage == "golang" ? "go" : currentLanguage}
+                                  style={dracula}
+                                  customStyle={{
+                                    maxWidth: "100%",
+                                    margin: 0,
+                                    padding: "1rem",
+                                    whiteSpace: "pre-wrap",
+                                    wordBreak: "break-all",
+                                    backgroundColor: "rgba(0, 0, 0, 0.3)",
+                                    borderRadius: "8px"
+                                  }}
+                                  wrapLongLines={true}
+                                >
+                                  {solutionData as string}
+                                </SyntaxHighlighter>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* AI Avatar and Response Bubble for Complexity */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shrink-0">
+                          <span className="text-white text-sm font-medium">AI</span>
+                        </div>                        <div className="flex-1 max-w-[85%]">
+                          <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-2xl rounded-tl-sm p-4 border border-gray-700/50">
+                            <div className="text-[13px] font-medium text-orange-400 mb-2">📊 Performance Analysis</div>
+                            {!timeComplexityData || !spaceComplexityData ? (
+                              <div className="flex items-center gap-2">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                                  <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                                  <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                                </div>
+                                <div className="text-xs text-orange-300 animate-pulse">
+                                  Calculating performance metrics...
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col space-y-3">
+                                <div className="flex flex-col">
+                                  <div className="text-[13px] leading-[1.4] text-white/90">
+                                    <span className="font-semibold text-orange-300">⏱️ Time Complexity:</span> <span className="font-mono text-orange-200">{timeComplexityData}</span>
+                                  </div>
+                                  {timeComplexityExplanation && (
+                                    <div className="text-[12px] leading-[1.4] mt-1 text-white/70 pl-4 border-l-2 border-orange-500/30">
+                                      {timeComplexityExplanation}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex flex-col">
+                                  <div className="text-[13px] leading-[1.4] text-white/90">
+                                    <span className="font-semibold text-orange-300">💾 Space Complexity:</span> <span className="font-mono text-orange-200">{spaceComplexityData}</span>
+                                  </div>
+                                  {spaceComplexityExplanation && (
+                                    <div className="text-[12px] leading-[1.4] mt-1 text-white/70 pl-4 border-l-2 border-orange-500/30">
+                                      {spaceComplexityExplanation}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {/* Final completion message when all data is available */}
+                      {thoughtsData && solutionData && timeComplexityData && spaceComplexityData && (
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0">
+                            <span className="text-white text-sm">✓</span>
+                          </div>
+                          <div className="flex-1 max-w-[85%]">
+                            <div className="bg-gradient-to-br from-emerald-800/40 to-teal-800/40 backdrop-blur-sm rounded-2xl rounded-tl-sm p-3 border border-emerald-700/50">
+                              <div className="text-xs text-emerald-300">
+                                ✨ Analysis complete! I've provided my thoughts, solution, and performance analysis. Feel free to ask if you need clarification on any part!
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+export default Solutions
