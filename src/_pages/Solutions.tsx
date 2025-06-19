@@ -276,14 +276,14 @@ const Solutions: React.FC<SolutionsProps> = ({
         setTimeout(() => {
           setIsResetting(false)
         }, 0)
-      }),
-      window.electronAPI.onSolutionStart(() => {
-        // Every time processing starts, reset relevant states
-        setSolutionData(null)
-        setThoughtsData(null)
-        setTimeComplexityData(null)
-        setSpaceComplexityData(null)
-      }),
+      }),      // onSolutionStart listener removed - handled by main App.tsx to prevent duplicate conversation messages
+      // window.electronAPI.onSolutionStart(() => {
+      //   // Every time processing starts, reset relevant states
+      //   setSolutionData(null)
+      //   setThoughtsData(null)
+      //   setTimeComplexityData(null)
+      //   setSpaceComplexityData(null)
+      // }),
       window.electronAPI.onProblemExtracted((data) => {
         queryClient.setQueryData(["problem_statement"], data)
       }),
@@ -305,12 +305,9 @@ const Solutions: React.FC<SolutionsProps> = ({
         setTimeComplexityData(solution?.time_complexity || null)
         setSpaceComplexityData(solution?.space_complexity || null)
         console.error("Processing error:", error)
-      }),
-
-
-
-
-      //when the initial solution is generated, we'll set the solution data to that
+      }),      //when the initial solution is generated, we'll set the solution data to that
+      // onSolutionSuccess listener removed - handled by main App.tsx to prevent duplicate conversation messages
+      /*
       window.electronAPI.onSolutionSuccess((data) => {
         if (!data) {
           console.warn("Received empty or invalid solution data")
@@ -486,9 +483,11 @@ const Solutions: React.FC<SolutionsProps> = ({
             console.error("Error loading extra screenshots:", error);
             setExtraScreenshots([]);
           }
-        };
-        fetchScreenshots();
-      }),
+        };        fetchScreenshots();      }),
+      */
+      
+      // Placeholder to maintain array structure - onSolutionSuccess handling moved to App.tsx
+      () => () => {}, // No-op function
 
       //########################################################
       //DEBUG EVENTS

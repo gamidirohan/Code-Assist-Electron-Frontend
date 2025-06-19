@@ -5,6 +5,7 @@ export class ShortcutsHelper {
   private deps: IShortcutsHelperDeps
   private lastScaleTime = 0
   private scaleDebounceMs = 150 // Prevent scaling faster than every 150ms
+  private windowSpecificShortcutsRegistered = false
 
   constructor(deps: IShortcutsHelperDeps) {
     this.deps = deps
@@ -21,7 +22,8 @@ export class ShortcutsHelper {
     mainWindow.setOpacity(newOpacity);
 
     // If we're making the window visible, also make sure it's shown and interaction is enabled
-    if (newOpacity > 0.1 && !this.deps.isVisible()) {
+    // Only show the window if it was fully transparent and is now becoming visible
+    if (currentOpacity <= 0.1 && newOpacity > 0.1 && !this.deps.isVisible()) {
       this.deps.toggleMainWindow();
     }
   }
@@ -30,15 +32,46 @@ export class ShortcutsHelper {
     const mainWindow = this.deps.getMainWindow();
     if (!mainWindow) return;
     
-    const currentOpacity = mainWindow.getOpacity();
-    console.log(`Setting full opacity from ${currentOpacity} to 1.0`);
+    const startOpacity = mainWindow.getOpacity();
+    console.log(`Setting full opacity from ${startOpacity} to 1.0 step by step`);
     
-    mainWindow.setOpacity(1.0);
-
-    // Ensure the window is visible and interaction is enabled
+    // First ensure the window is visible and interaction is enabled
     if (!this.deps.isVisible()) {
       this.deps.toggleMainWindow();
+      // After toggling, we need to wait a bit for the window to become visible
+      setTimeout(() => this.animateOpacity(), 200);
+      return; // Exit early as the toggleMainWindow already handles visibility
     }
+    
+    // If already visible, start the animation directly
+    this.animateOpacity();
+  }
+  
+  private animateOpacity(): void {
+    const mainWindow = this.deps.getMainWindow();
+    if (!mainWindow) return;
+    
+    // Make sure mouse events are enabled as we're making the window visible
+    mainWindow.setIgnoreMouseEvents(false);
+    
+    // Get the current opacity as our starting point
+    let currentOpacity = mainWindow.getOpacity();
+    const targetOpacity = 1.0;
+    const step = 0.1;
+    const interval = 50; // milliseconds between steps
+    
+    console.log(`Starting opacity animation from ${currentOpacity} to ${targetOpacity}`);
+    
+    const opacityInterval = setInterval(() => {
+      currentOpacity = Math.min(targetOpacity, currentOpacity + step);
+      mainWindow.setOpacity(currentOpacity);
+      console.log(`Opacity step: ${currentOpacity.toFixed(1)}`);
+      
+      if (currentOpacity >= targetOpacity) {
+        clearInterval(opacityInterval);
+        console.log('Full opacity reached (1.0)');
+      }
+    }, interval);
   }
 
   private lastScaleDirection: "up" | "down" | "reset" | null = null;
@@ -59,6 +92,53 @@ export class ShortcutsHelper {
   }
 
   public registerGlobalShortcuts(): void {
+    // Always register the toggle shortcut - this should work regardless of window state
+    globalShortcut.register("CommandOrControl+B", () => {
+      console.log("Command/Ctrl + B pressed. Toggling window visibility.")
+      const wasVisible = this.deps.isVisible()
+      this.deps.toggleMainWindow()
+      
+      // Register or unregister window-specific shortcuts based on new state
+      if (!wasVisible) {
+        // Window was hidden, now showing - register shortcuts and focus window
+        this.registerWindowSpecificShortcuts()
+        this.focusWindow()
+      } else {
+        // Window was visible, now hiding - unregister shortcuts
+        this.unregisterWindowSpecificShortcuts()
+      }
+    })
+
+    // Always register the quit shortcut
+    globalShortcut.register("CommandOrControl+Q", () => {
+      console.log("Command/Ctrl + Q pressed. Quitting application.")
+      app.quit()
+    })
+    
+    // Unregister shortcuts when quitting
+    app.on("will-quit", () => {
+      globalShortcut.unregisterAll()
+    })
+  }
+
+  private focusWindow(): void {
+    setTimeout(() => {
+      const mainWindow = this.deps.getMainWindow()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.focus()
+        console.log('Window focused after toggle')
+      }
+    }, 100) // Small delay to ensure window is fully shown
+  }
+
+  public registerWindowSpecificShortcuts(): void {
+    if (this.windowSpecificShortcutsRegistered) {
+      console.log('Window-specific shortcuts already registered')
+      return
+    }
+
+    console.log('Registering window-specific shortcuts...')
+    
     globalShortcut.register("CommandOrControl+H", async () => {
       const mainWindow = this.deps.getMainWindow()
       if (mainWindow) {
@@ -111,7 +191,7 @@ export class ShortcutsHelper {
       }
     })
 
-    // New shortcuts for moving the window
+    // Window movement shortcuts
     globalShortcut.register("CommandOrControl+Left", () => {
       console.log("Command/Ctrl + Left pressed. Moving window left.")
       this.deps.moveWindowLeft()
@@ -130,16 +210,6 @@ export class ShortcutsHelper {
     globalShortcut.register("CommandOrControl+Up", () => {
       console.log("Command/Ctrl + Up pressed. Moving window Up.")
       this.deps.moveWindowUp()
-    })
-
-    globalShortcut.register("CommandOrControl+B", () => {
-      console.log("Command/Ctrl + B pressed. Toggling window visibility.")
-      this.deps.toggleMainWindow()
-    })
-
-    globalShortcut.register("CommandOrControl+Q", () => {
-      console.log("Command/Ctrl + Q pressed. Quitting application.")
-      app.quit()
     })
 
     // Adjust opacity shortcuts
@@ -178,31 +248,45 @@ export class ShortcutsHelper {
         mainWindow.webContents.send("delete-last-screenshot")
       }
     })
+
+    this.windowSpecificShortcutsRegistered = true
+    console.log('Window-specific shortcuts registered successfully')
+  }
+
+  public unregisterWindowSpecificShortcuts(): void {
+    if (!this.windowSpecificShortcutsRegistered) {
+      console.log('Window-specific shortcuts already unregistered')
+      return
+    }
+
+    console.log('Unregistering window-specific shortcuts...')
     
-    // Window movement shortcuts
-    globalShortcut.register("CommandOrControl+Left", () => {
-      console.log("Command/Ctrl + Left pressed. Moving window left.")
-      this.deps.moveWindowLeft()
+    // Unregister all window-specific shortcuts while keeping B and Q
+    const shortcutsToUnregister = [
+      "CommandOrControl+H",
+      "CommandOrControl+Enter", 
+      "CommandOrControl+R",
+      "CommandOrControl+Left",
+      "CommandOrControl+Right",
+      "CommandOrControl+Down", 
+      "CommandOrControl+Up",
+      "CommandOrControl+[",
+      "CommandOrControl+]",
+      "CommandOrControl+-",
+      "CommandOrControl+0",
+      "CommandOrControl+=",
+      "CommandOrControl+L"
+    ]
+
+    shortcutsToUnregister.forEach(shortcut => {
+      try {
+        globalShortcut.unregister(shortcut)
+      } catch (error) {
+        console.error(`Error unregistering shortcut ${shortcut}:`, error)
+      }
     })
-    
-    globalShortcut.register("CommandOrControl+Right", () => {
-      console.log("Command/Ctrl + Right pressed. Moving window right.")
-      this.deps.moveWindowRight()
-    })
-    
-    globalShortcut.register("CommandOrControl+Up", () => {
-      console.log("Command/Ctrl + Up pressed. Moving window up.")
-      this.deps.moveWindowUp()
-    })
-    
-    globalShortcut.register("CommandOrControl+Down", () => {
-      console.log("Command/Ctrl + Down pressed. Moving window down.")
-      this.deps.moveWindowDown()
-    })
-    
-    // Unregister shortcuts when quitting
-    app.on("will-quit", () => {
-      globalShortcut.unregisterAll()
-    })
+
+    this.windowSpecificShortcutsRegistered = false
+    console.log('Window-specific shortcuts unregistered successfully')
   }
 }

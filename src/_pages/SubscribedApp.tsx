@@ -77,11 +77,10 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
   }, [view])
 
   // Listen for events that might switch views or show errors
-  useEffect(() => {
-    const cleanupFunctions = [
-      window.electronAPI.onSolutionStart(() => {
-        setView("solutions")
-      }),
+  useEffect(() => {    const cleanupFunctions = [
+      // onSolutionStart listener removed - handled by main App.tsx to prevent duplicate conversation messages
+      // Just keep view switching functionality here
+      () => () => {}, // Placeholder
       window.electronAPI.onUnauthorized(() => {
         queryClient.removeQueries({
           queryKey: ["screenshots"]

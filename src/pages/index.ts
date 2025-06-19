@@ -1,1 +1,7 @@
 export { ChatPage } from './ChatPage'
+export { HomePage } from './HomePage'
+export { CodePage } from './CodePage'
+export { QueuePage } from './QueuePage'
+export { SolutionsPage } from './SolutionsPage'
+export { MessagesPage } from './MessagesPage'
+export { BrainPage } from './BrainPage'

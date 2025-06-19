@@ -28,6 +28,8 @@
 .frosted-glass {
   background: rgba(26, 26, 26, 0.8);
   backdrop-filter: blur(8px);
+  border-radius: 1rem;
+  overflow: hidden;
 }
 
 .auth-button {

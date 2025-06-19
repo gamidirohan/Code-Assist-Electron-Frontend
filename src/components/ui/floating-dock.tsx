@@ -39,10 +39,9 @@ const FloatingDockMobile = ({
   return (
     <div className={cn("relative block md:hidden", className)}>
       <AnimatePresence>
-        {open && (
-          <motion.div
+        {open && (          <motion.div
             layoutId="nav"
-            className="absolute inset-x-0 bottom-full mb-2 flex flex-col gap-2"
+            className="absolute inset-x-0 top-full mt-2 flex flex-col gap-2"
           >
             {items.map((item, idx) => (
               <motion.div
@@ -100,7 +99,7 @@ const FloatingDockDesktop = ({
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
       className={cn(
-        "mx-auto hidden h-16 items-end gap-4 rounded-2xl bg-gray-50 px-4 pb-3 md:flex dark:bg-neutral-900",
+        "mx-auto hidden h-16 items-start gap-4 rounded-2xl bg-gray-50 px-4 pt-3 md:flex dark:bg-neutral-900",
         className,
       )}
     >
@@ -182,11 +181,10 @@ function IconContainer({
         className="relative flex aspect-square items-center justify-center rounded-full bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 backdrop-blur-sm transition-all duration-200"
       >        <AnimatePresence>
           {hovered && (
-            <motion.div
-              initial={{ opacity: 0, y: -10, x: "-50%" }}
+            <motion.div              initial={{ opacity: 0, y: 10, x: "-50%" }}
               animate={{ opacity: 1, y: 0, x: "-50%" }}
-              exit={{ opacity: 0, y: -2, x: "-50%" }}
-              className="absolute -bottom-8 left-1/2 w-fit rounded-md border border-white/30 bg-white/20 backdrop-blur-md px-2 py-0.5 text-xs whitespace-pre text-white shadow-lg"
+              exit={{ opacity: 0, y: 2, x: "-50%" }}
+              className="absolute -top-8 left-1/2 w-fit rounded-xl border border-white/30 bg-white/20 backdrop-blur-md px-2 py-0.5 text-xs whitespace-pre text-white shadow-lg"
             >
               {title}
             </motion.div>

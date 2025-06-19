@@ -35,6 +35,7 @@ const state = {
   isZooming: false, // Added to manage zoom state
   isManuallyScaled: false, // Track if user has manually scaled the window
   isTogglingVisibility: false, // Track if we're in the middle of show/hide operation
+  isMoving: false, // Track if we're in the middle of a movement operation
   lastResizeCall: 0, // Prevent resize loops
 
   // Application helpers
@@ -599,14 +600,23 @@ function showMainWindow(): void {
     });
     state.mainWindow.setContentProtection(true);
     state.mainWindow.setOpacity(0); // Set opacity to 0 before showing
-    state.mainWindow.showInactive(); // Use showInactive instead of show+focus
+    state.mainWindow.show(); // Use show() instead of showInactive() to get focus
 
     // Force a repaint before showing
     state.mainWindow.webContents.invalidate();
 
     state.mainWindow.setOpacity(1); // Then set opacity to 1 after showing
+    
+    // Ensure window gets focus
+    setTimeout(() => {
+      if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+        state.mainWindow.focus();
+        console.log('Window focused after show');
+      }
+    }, 50);
+    
     state.isWindowVisible = true;
-    console.log('Window shown with showInactive(), opacity set to 1');
+    console.log('Window shown with show(), opacity set to 1, and focused');
   }
 }
 
@@ -637,10 +647,20 @@ function moveWindowHorizontal(updateFn: (x: number) => number): void {
   state.currentY = actualY
 
   state.currentX = updateFn(state.currentX)
+  
+  // Set a flag to prevent dimension updates from overriding position changes
+  state.isMoving = true
+  
   state.mainWindow.setPosition(
     Math.round(state.currentX),
     Math.round(state.currentY)
   )
+  
+  // Clear the flag after a short delay
+  setTimeout(() => {
+    state.isMoving = false
+  }, 100)
+  
   console.log(`Window moved to: (${Math.round(state.currentX)}, ${Math.round(state.currentY)})`)
 }
 
@@ -672,17 +692,27 @@ function moveWindowVertical(updateFn: (y: number) => number): void {
   // Only update if within bounds
   if (newY >= maxUpLimit && newY <= maxDownLimit) {
     state.currentY = newY
+    
+    // Set a flag to prevent dimension updates from overriding position changes
+    state.isMoving = true
+    
     state.mainWindow.setPosition(
       Math.round(state.currentX),
       Math.round(state.currentY)
     )
+    
+    // Clear the flag after a short delay
+    setTimeout(() => {
+      state.isMoving = false
+    }, 100)
+    
     console.log(`Window moved to: (${Math.round(state.currentX)}, ${Math.round(state.currentY)})`)
   }
 }
 
 // Window dimension functions
 function setWindowDimensions(width: number, height: number): void {
-  if (!state.mainWindow?.isDestroyed() && !state.isZooming && !state.isTogglingVisibility) {
+  if (!state.mainWindow?.isDestroyed() && !state.isZooming && !state.isTogglingVisibility && !state.isMoving) {
     // If user has manually scaled, preserve those dimensions and ignore content-based resizing
     if (state.isManuallyScaled) {
       console.log('Skipping content-based resize - window is manually scaled');
@@ -737,6 +767,8 @@ function setWindowDimensions(width: number, height: number): void {
     console.log('Skipping setWindowDimensions during scaling operation');
   } else if (state.isTogglingVisibility) {
     console.log('Skipping setWindowDimensions during visibility toggle');
+  } else if (state.isMoving) {
+    console.log('Skipping setWindowDimensions during movement operation');
   }
 }
 
@@ -857,6 +889,11 @@ async function initializeApp() {
     })
     await createWindow()
     state.shortcutsHelper?.registerGlobalShortcuts()
+    
+    // Since the window starts visible, register window-specific shortcuts
+    if (state.isWindowVisible) {
+      state.shortcutsHelper?.registerWindowSpecificShortcuts()
+    }
 
     // Initialize auto-updater regardless of environment
     initAutoUpdater()
