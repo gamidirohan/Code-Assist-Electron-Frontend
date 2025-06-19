@@ -150,9 +150,22 @@ export const CodePage = ({
                      style={{
                        scrollbarWidth: 'thin',
                        scrollbarColor: '#4B5563 #1F2937'
-                     }}>
-                  {message.solutionData ? (
-                    <div className="space-y-4">
+                     }}>                  {message.solutionData ? (
+                    <div className="space-y-4">                      {/* Debug: Show all available data (remove this after debugging) */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <details className="bg-gray-800/50 p-2 rounded border">
+                          <summary className="text-xs text-gray-500 cursor-pointer">🔍 Debug: Available Data</summary>
+                          <pre className="text-xs text-gray-400 mt-2 whitespace-pre-wrap overflow-auto max-h-32">
+                            {JSON.stringify(message.solutionData, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+
+                      {/* Transparency fix hint */}
+                      <div className="text-xs text-gray-500 bg-gray-800/30 p-2 rounded border border-gray-700/50">
+                        💡 <strong>Tip:</strong> If window becomes transparent, press <kbd className="px-1 py-0.5 bg-gray-700 rounded text-gray-300">Ctrl+]</kbd> to restore full opacity
+                      </div>
+
                       {/* Conversational intro */}
                       <p className="text-gray-300">
                         I've analyzed your code screenshots! Here's what I found and how to solve it:
@@ -166,9 +179,7 @@ export const CodePage = ({
                             {message.solutionData["Problem Information"]}
                           </p>
                         </div>
-                      )}
-
-                      {/* Solution code with conversational intro */}
+                      )}                      {/* Solution code with conversational intro */}
                       {message.solutionData.Code && (
                         <div>
                           <p className="text-gray-300 mb-2">
@@ -199,6 +210,16 @@ export const CodePage = ({
                         </div>
                       )}
 
+                      {/* Explanation/Thoughts */}
+                      {message.solutionData.Explanation && (
+                        <div className="bg-purple-500/10 p-3 rounded-lg border border-purple-500/20">
+                          <p className="text-purple-200 font-medium mb-2">💡 How it works:</p>
+                          <p className="text-gray-300 text-sm leading-relaxed">
+                            {message.solutionData.Explanation}
+                          </p>
+                        </div>
+                      )}
+
                       {/* Complexity Analysis */}
                       {(message.solutionData["Time Complexity"] || message.solutionData["Space Complexity"]) && (
                         <div className="bg-green-500/10 p-3 rounded-lg border border-green-500/20">
@@ -215,6 +236,16 @@ export const CodePage = ({
                               </p>
                             )}
                           </div>
+                          
+                          {/* Detailed complexity explanation */}
+                          {message.solutionData.complexity_explanation && (
+                            <div className="mt-3 pt-2 border-t border-green-500/20">
+                              <p className="text-green-200 text-xs font-medium mb-1">Detailed Analysis:</p>
+                              <p className="text-gray-400 text-xs leading-relaxed">
+                                {message.solutionData.complexity_explanation}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

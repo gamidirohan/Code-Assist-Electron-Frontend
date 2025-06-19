@@ -282,6 +282,12 @@ export class ProcessingHelper {
               // Use the solution data directly without replacing newlines
               const formattedData = solutionsResult.data;
 
+              // Ensure window is fully visible and opaque after solution generation
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.setOpacity(1.0);
+                console.log("Window opacity restored to 1.0 after solution generation");
+              }
+
               // Clear any existing extra screenshots before transitioning to solutions view
               this.screenshotHelper.clearExtraScreenshotQueue()
               mainWindow.webContents.send(

@@ -16,8 +16,13 @@ export class ShortcutsHelper {
     if (!mainWindow) return;
     
     let currentOpacity = mainWindow.getOpacity();
-    let newOpacity = Math.max(0.1, Math.min(1.0, currentOpacity + delta));
+    let newOpacity = Math.max(0.3, Math.min(1.0, currentOpacity + delta)); // Increased minimum from 0.1 to 0.3
     console.log(`Adjusting opacity from ${currentOpacity} to ${newOpacity}`);
+    
+    // Add warning for low opacity
+    if (newOpacity <= 0.5) {
+      console.warn(`⚠️  Window opacity is getting low (${newOpacity.toFixed(1)}). Use Ctrl+] to restore full opacity.`);
+    }
     
     mainWindow.setOpacity(newOpacity);
 
