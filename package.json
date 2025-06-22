@@ -1,5 +1,5 @@
 {
-  "name": "Microsoft-OneDrive-Backup-v1",
+  "name": "Jimminy-The-Second_Conscience-v1",
   "version": "1.0.18",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -43,7 +43,7 @@
           ]
         }
       ],
-      "artifactName": "Microsoft-OneDrive-Backup-${arch}.${ext}",
+      "artifactName": "Jimminy-The-Second_Conscience-${arch}.${ext}",
       "icon": "assets/icons/mac/icon.icns",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -52,9 +52,9 @@
       "identity": "Developer ID Application",
       "notarize": true,
       "protocols": {
-        "name": "Microsoft-OneDrive-Backup-protocol",
+        "name": "Jimminy-The-Second_Conscience-protocol",
         "schemes": [
-          "Microsoft-OneDrive-Backup"
+          "Jimminy-The-Second_Conscience"
         ]
       }
     },
@@ -65,9 +65,9 @@
       "icon": "assets/icons/win/icon1.ico",
       "artifactName": "${productName}-Windows-${version}.${ext}",
       "protocols": {
-        "name": "Microsoft-OneDrive-Backup-protocol",
+        "name": "Jimminy-The-Second_Conscience-protocol",
         "schemes": [
-          "Microsoft-OneDrive-Backup"
+          "Jimminy-The-Second_Conscience"
         ]
       }
     },
@@ -78,9 +78,9 @@
       "icon": "assets/icons/png/icon-256x256.png",
       "artifactName": "${productName}-Linux-${version}.${ext}",
       "protocols": {
-        "name": "Microsoft-OneDrive-Backup-protocol",
+        "name": "Jimminy-The-Second_Conscience-protocol",
         "schemes": [
-          "Microsoft-OneDrive-Backup"
+          "Jimminy-The-Second_Conscience"
         ]
       }
     },
@@ -88,7 +88,7 @@
       {
         "provider": "github",
         "owner": "ibttf",
-        "repo": "Microsoft-OneDrive-Backup",
+        "repo": "Jimminy-The-Second_Conscience",
         "private": false,
         "releaseType": "release"
       }

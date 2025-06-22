@@ -798,7 +798,7 @@ function preventUnwantedResize(window: BrowserWindow) {
   let isZooming = false;
   let lastBounds = window.getBounds();
 
-  window.on('resize', (e: Event) => {
+  window.on('will-resize', (e: Electron.Event) => {
     if (isZooming) return;
 
     const bounds = window.getBounds();

@@ -15,7 +15,7 @@ import { NavigationBar } from "./components/Navigation/NavigationBar"
 function App() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [isMobileView, setIsMobileView] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
   
   // Navigation state
   const [currentPage, setCurrentPage] = useState<string>('home')
@@ -44,6 +44,9 @@ function App() {
   const [spaceComplexityExplanation, setSpaceComplexityExplanation] = useState<string | null>(null)
   const [isProcessingSolution, setIsProcessingSolution] = useState(false)
   const [processingStage, setProcessingStage] = useState<string>('')
+
+  // Microphone stream ref
+  const micStreamRef = useRef<MediaStream | null>(null)
 
   // Initialize global window properties for electron compatibility
   useEffect(() => {
@@ -420,6 +423,7 @@ function App() {
           {currentPage === 'brain' && (
             <BrainPage 
               isMobileView={isMobileView}
+              isMuted={isMuted}
             />
           )}        </div>
       </div>

@@ -1,10 +1,42 @@
+import { useEffect } from "react";
+import { useRealtimeSTT } from "../hooks/useRealtimeSTT";
 import { IconBrain, IconBulb, IconCode, IconSearch, IconMicrophone, IconUsers, IconWaveSquare } from "@tabler/icons-react"
 
 interface BrainPageProps {
-  isMobileView: boolean
+  isMobileView: boolean;
+  isMuted: boolean;
 }
 
-export const BrainPage = ({ isMobileView }: BrainPageProps) => {
+export const BrainPage = ({ isMobileView, isMuted }: BrainPageProps) => {
+  console.log(`[BrainPage] Rendering with isMuted: ${isMuted}`);
+
+  const { 
+    transcript,
+    interimTranscript,
+    isStreaming,
+    isConnected,
+    startStreaming,
+    stopStreaming 
+  } = useRealtimeSTT();
+
+  // Control streaming based on the global mute state
+  useEffect(() => {
+    console.log(`[BrainPage] useEffect triggered. isMuted: ${isMuted}`);
+    if (!isMuted) {
+      console.log('[BrainPage] Calling startStreaming...');
+      startStreaming();
+    } else {
+      console.log('[BrainPage] Calling stopStreaming...');
+      stopStreaming();
+    }
+
+    // Cleanup on component unmount
+    return () => {
+      console.log('[BrainPage] Unmounting, calling stopStreaming for cleanup.');
+      stopStreaming();
+    }
+  }, [isMuted, startStreaming, stopStreaming]);
+
   const recommendations = [
     {
       id: 1,
@@ -78,17 +110,12 @@ export const BrainPage = ({ isMobileView }: BrainPageProps) => {
             <div className="flex items-center gap-2 mb-3">
               <IconMicrophone className="w-5 h-5 text-green-400" />
               <h3 className="text-sm font-medium text-gray-200">My Speech</h3>
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse ml-auto"></div>
+              <div className={`w-2 h-2 ${isConnected && isStreaming ? 'bg-green-500' : 'bg-gray-500'} rounded-full ${isConnected && isStreaming ? 'animate-pulse' : ''} ml-auto`}></div>
             </div>
             
-            <div className="space-y-2 text-sm text-gray-300">
-              <p className="italic">Recording text and visualization...</p>
-              <div className="flex items-center gap-2 mt-4">
-                <IconWaveSquare className="w-4 h-4 text-green-400" />
-                <div className="flex-1 bg-green-500/20 h-1 rounded-full">
-                  <div className="bg-green-500 h-1 rounded-full w-3/4 animate-pulse"></div>
-                </div>
-              </div>
+            <div className="space-y-2 text-sm text-gray-300 h-24 overflow-y-auto">
+              <p>{transcript}</p>
+              <p className="italic text-gray-500">{interimTranscript}</p>
             </div>
           </div>
 
