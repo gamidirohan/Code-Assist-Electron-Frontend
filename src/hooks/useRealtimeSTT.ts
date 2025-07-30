@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-const WEBSOCKET_URL_BASE = 'ws://localhost:8000/ws/jiminy/';
+const WEBSOCKET_URL_BASE = 'ws://localhost:3000/ws/jiminy/';
 
 export const useRealtimeSTT = () => {
   const [transcript, setTranscript] = useState('');

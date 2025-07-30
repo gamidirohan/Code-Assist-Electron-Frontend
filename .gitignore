@@ -4,6 +4,7 @@ release
 dist
 .env
 .env.*
+myenv/
 **/.DS_Store
 **/.vscode
 **/.idea
