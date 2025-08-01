@@ -1,6 +1,6 @@
 # Conversational Co-Pilot - Floating Window
 
-This project has been transformed from a screenshot-based interview coder to a clean floating conversational co-pilot application.
+This project has been transformed from a screenshot-based Jiminy – The Second Conscience to a clean floating conversational co-pilot application.
 
 ## What We've Done
 

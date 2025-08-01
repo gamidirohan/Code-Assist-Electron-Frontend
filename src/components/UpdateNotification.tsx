@@ -97,7 +97,7 @@ export const UpdateNotification: React.FC = () => {
         <DialogDescription className="text-sm text-white/70 mb-6">
           {updateDownloaded
             ? "The update has been downloaded and will be installed when you restart the app."
-            : "A new version of Interview Coder is available. Please update to continue using the app."}
+            : "A new version of Jiminy – The Second Conscience is available. Please update to continue using the app."}
         </DialogDescription>
         <div className="flex justify-end gap-2">
           {updateDownloaded ? (
